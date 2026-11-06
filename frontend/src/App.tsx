@@ -19,17 +19,31 @@ import {
   ExternalLink,
   SlidersHorizontal,
   Compass,
-  Code2
+  Code2,
+  ArrowLeft
 } from 'lucide-react';
 
+const getInitialUrlState = () => {
+  if (typeof window === 'undefined') return { q: '', page: 1, tab: 'all' as const };
+  const params = new URLSearchParams(window.location.search);
+  const q = params.get('q') || '';
+  const page = parseInt(params.get('page') || '1', 10);
+  const rawTab = params.get('tab');
+  const tab = (rawTab === 'tech' || rawTab === 'docs' || rawTab === 'news' ? rawTab : 'all') as 'all' | 'tech' | 'docs' | 'news';
+  return { q, page, tab };
+};
+
 export const App: React.FC = () => {
-  const [query, setQuery] = useState('');
+  const initialUrlState = getInitialUrlState();
+  const isSearchPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/search') && Boolean(initialUrlState.q);
+
+  const [query, setQuery] = useState(initialUrlState.q);
   const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(null);
   const [stats, setStats] = useState<EngineStats | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(isSearchPath);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isCrawlModalOpen, setIsCrawlModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'tech' | 'docs' | 'news'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'tech' | 'docs' | 'news'>(initialUrlState.tab);
 
   // Sync dark mode class with HTML element
   useEffect(() => {
@@ -58,14 +72,29 @@ export const App: React.FC = () => {
   }, []);
 
   // Handle Search Execution
-  const executeSearch = async (searchQuery: string, page: number = 1) => {
-    if (!searchQuery.trim()) return;
+  const executeSearch = async (
+    searchQuery: string,
+    page: number = 1,
+    tab: 'all' | 'tech' | 'docs' | 'news' = activeTab,
+    updateUrl: boolean = true
+  ) => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return;
     setLoading(true);
-    setQuery(searchQuery);
+    setQuery(trimmed);
+    document.title = `${trimmed} - Findra Search`;
+
+    if (updateUrl) {
+      const tabParam = tab !== 'all' ? `&tab=${tab}` : '';
+      const newUrl = `/search?q=${encodeURIComponent(trimmed)}&page=${page}${tabParam}`;
+      if (window.location.pathname + window.location.search !== newUrl) {
+        window.history.pushState({ q: trimmed, page, tab }, '', newUrl);
+      }
+    }
 
     try {
       const res = await fetch(
-        `/api/search?q=${encodeURIComponent(searchQuery)}&page=${page}&limit=10&tab=${activeTab}`
+        `/api/search?q=${encodeURIComponent(trimmed)}&page=${page}&limit=10&tab=${tab}`
       );
       if (res.ok) {
         const data: SearchResponse = await res.json();
@@ -80,12 +109,62 @@ export const App: React.FC = () => {
     }
   };
 
+  // Navigate back to Home and update URL to "/"
+  const navigateToHome = () => {
+    setSearchResponse(null);
+    setQuery('');
+    setLoading(false);
+    document.title = 'Findra Search - Fast, Private, Polite Web Index';
+    if (window.location.pathname !== '/' || window.location.search) {
+      window.history.pushState({}, '', '/');
+    }
+  };
+
+  // Listen to browser Back and Forward button navigation (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const urlQ = params.get('q');
+      const urlPage = parseInt(params.get('page') || '1', 10);
+      const urlTab = (params.get('tab') as 'all' | 'tech' | 'docs' | 'news') || 'all';
+
+      if (urlQ && window.location.pathname.startsWith('/search')) {
+        setQuery(urlQ);
+        setActiveTab(urlTab);
+        document.title = `${urlQ} - Findra Search`;
+        executeSearch(urlQ, urlPage, urlTab, false);
+      } else {
+        setSearchResponse(null);
+        setQuery('');
+        setLoading(false);
+        document.title = 'Findra Search - Fast, Private, Polite Web Index';
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Initial load check: if URL already has /search?q=..., load it on page load/refresh
+  useEffect(() => {
+    if (initialUrlState.q && window.location.pathname.startsWith('/search')) {
+      executeSearch(initialUrlState.q, initialUrlState.page, initialUrlState.tab, false);
+    }
+  }, []);
+
   const handlePageChange = (newPage: number) => {
-    executeSearch(query, newPage);
+    executeSearch(query, newPage, activeTab, true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const isHome = !searchResponse && !loading;
+  const handleTabChange = (newTab: 'all' | 'tech' | 'docs' | 'news') => {
+    setActiveTab(newTab);
+    if (query) {
+      executeSearch(query, 1, newTab, true);
+    }
+  };
+
+  const isHome = !searchResponse && !loading && (!window.location.pathname.startsWith('/search') || !query);
 
   return (
     <div className="min-h-screen flex flex-col justify-between transition-colors duration-200">
@@ -193,20 +272,29 @@ export const App: React.FC = () => {
           <header className="sticky top-0 z-40 bg-white/90 dark:bg-[#121214]/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 sm:px-8 py-3.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 max-w-7xl mx-auto">
               <div className="flex items-center space-x-5 flex-1">
-                {/* Logo Back to Home */}
-                <div
-                  onClick={() => {
-                    setSearchResponse(null);
-                    setQuery('');
-                  }}
-                  className="cursor-pointer select-none text-2xl font-bold tracking-tight"
-                >
-                  <span className="text-[#4285F4]">F</span>
-                  <span className="text-[#EA4335]">i</span>
-                  <span className="text-[#FBBC05]">n</span>
-                  <span className="text-[#4285F4]">d</span>
-                  <span className="text-[#34A853]">r</span>
-                  <span className="text-[#EA4335]">a</span>
+                {/* Back to Home Button & Logo */}
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={navigateToHome}
+                    title="Go back to Home"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer text-xs font-medium"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Home</span>
+                  </button>
+
+                  <div
+                    onClick={navigateToHome}
+                    className="cursor-pointer select-none text-2xl font-bold tracking-tight hover:opacity-90 transition-opacity"
+                    title="Findra Home"
+                  >
+                    <span className="text-[#4285F4]">F</span>
+                    <span className="text-[#EA4335]">i</span>
+                    <span className="text-[#FBBC05]">n</span>
+                    <span className="text-[#4285F4]">d</span>
+                    <span className="text-[#34A853]">r</span>
+                    <span className="text-[#EA4335]">a</span>
+                  </div>
                 </div>
 
                 {/* Compact SearchBar */}
@@ -238,11 +326,11 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Filter Tabs (All, Tech, Docs, News) */}
+            {/* Filter Tabs (All, Tech, Docs) */}
             <div className="flex items-center space-x-6 max-w-7xl mx-auto mt-3 pl-2 sm:pl-24 text-xs font-medium text-slate-500 dark:text-slate-400">
               <button
-                onClick={() => setActiveTab('all')}
-                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1 ${
+                onClick={() => handleTabChange('all')}
+                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1 cursor-pointer ${
                   activeTab === 'all'
                     ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-semibold'
                     : 'border-transparent hover:text-slate-800 dark:hover:text-slate-200'
@@ -252,8 +340,8 @@ export const App: React.FC = () => {
                 <span>All</span>
               </button>
               <button
-                onClick={() => setActiveTab('tech')}
-                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1 ${
+                onClick={() => handleTabChange('tech')}
+                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1 cursor-pointer ${
                   activeTab === 'tech'
                     ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-semibold'
                     : 'border-transparent hover:text-slate-800 dark:hover:text-slate-200'
@@ -263,8 +351,8 @@ export const App: React.FC = () => {
                 <span>Tech</span>
               </button>
               <button
-                onClick={() => setActiveTab('docs')}
-                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1 ${
+                onClick={() => handleTabChange('docs')}
+                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1 cursor-pointer ${
                   activeTab === 'docs'
                     ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-semibold'
                     : 'border-transparent hover:text-slate-800 dark:hover:text-slate-200'
