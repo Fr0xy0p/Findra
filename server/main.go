@@ -20,16 +20,18 @@ type ServerConfig struct {
 }
 
 type APIGateway struct {
-	config ServerConfig
-	index  *IndexClient
-	cache  *QueryCache
+	config     ServerConfig
+	index      *IndexClient
+	cache      *QueryCache
+	liveSearch *LiveSearchService
 }
 
 func NewAPIGateway(cfg ServerConfig) *APIGateway {
 	return &APIGateway{
-		config: cfg,
-		index:  NewIndexClient(cfg.RustIndexURL),
-		cache:  NewQueryCache(cfg.CacheTTL, 5000),
+		config:     cfg,
+		index:      NewIndexClient(cfg.RustIndexURL),
+		cache:      NewQueryCache(cfg.CacheTTL, 5000),
+		liveSearch: NewLiveSearchService(),
 	}
 }
 
@@ -63,24 +65,49 @@ func (gw *APIGateway) handleSearch(w http.ResponseWriter, r *http.Request) {
 	// Check for Google-style Instant Answer / OneBox calculation or fact
 	instantAns := ResolveInstantAnswer(q)
 
+	startTime := time.Now()
 	res, err := gw.index.Search(q, page, limit)
-	if err != nil {
-		if instantAns != nil {
-			fallbackRes := SearchResponse{
+
+	// If local index returned 0 hits, failed, or only returned weak/unrelated matches,
+	// trigger Worldwide Live Web Discovery!
+	if err != nil || res == nil || len(res.Results) == 0 || !isStrongMatch(q, res) {
+		fmt.Printf("🌐 [Findra Gateway] Local index lacks strong matches for %q. Triggering Worldwide Live Search...\n", q)
+		liveItems, liveErr := gw.liveSearch.DiscoverLiveWeb(q, limit)
+		if liveErr == nil && len(liveItems) > 0 {
+			tookMs := float64(time.Since(startTime).Microseconds()) / 1000.0
+			res = &SearchResponse{
+				Query:            q,
+				InstantAnswer:    instantAns,
+				TotalHits:        len(liveItems),
+				TookMs:           tookMs,
+				Page:             page,
+				PageSize:         limit,
+				TotalPages:       1,
+				Results:          liveItems,
+				IsLiveDiscovered: true,
+				SourceNotice:     "🌐 Worldwide Web Real-Time Retrieval",
+			}
+
+			// Asynchronously auto-index into Findra's local index
+			go func(items []SearchResultItem) {
+				docsPath := "data/parsed/documents.jsonl"
+				crawlPath := "data/raw_crawled/crawl_output.jsonl"
+				gw.liveSearch.AutoIndexDiscovered(docsPath, crawlPath, gw.index, items)
+				gw.cache.Clear()
+			}(liveItems)
+		} else if err != nil && instantAns == nil {
+			http.Error(w, fmt.Sprintf(`{"error":"Index search failed: %v"}`, err), http.StatusServiceUnavailable)
+			return
+		} else if res == nil {
+			res = &SearchResponse{
 				Query:         q,
 				InstantAnswer: instantAns,
-				TookMs:        0.05,
-				Page:          1,
+				TookMs:        float64(time.Since(startTime).Microseconds()) / 1000.0,
+				Page:          page,
 				PageSize:      limit,
 				Results:       []SearchResultItem{},
 			}
-			jsonBytes, _ := json.Marshal(fallbackRes)
-			w.Header().Set("X-Cache", "MISS")
-			w.Write(jsonBytes)
-			return
 		}
-		http.Error(w, fmt.Sprintf(`{"error":"Index search failed: %v"}`, err), http.StatusServiceUnavailable)
-		return
 	}
 
 	if instantAns != nil {
@@ -94,6 +121,47 @@ func (gw *APIGateway) handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("X-Cache", "MISS")
 	w.Write(resBytes)
+}
+
+func isStrongMatch(query string, res *SearchResponse) bool {
+	if res == nil || len(res.Results) == 0 {
+		return false
+	}
+
+	qClean := strings.ToLower(strings.TrimSpace(query))
+	queryWords := strings.Fields(qClean)
+
+	top := res.Results[0]
+	titleLower := strings.ToLower(top.Title)
+
+	// Exact match of full query in title is always strong
+	if strings.Contains(titleLower, qClean) {
+		return true
+	}
+
+	// Check title keyword coverage
+	titleMatches := 0
+	for _, w := range queryWords {
+		cleaned := strings.Trim(w, ".,;:!?\"'")
+		if len(cleaned) >= 3 && strings.Contains(titleLower, cleaned) {
+			titleMatches++
+		}
+	}
+
+	// For multi-word queries, title MUST contain at least 1 keyword
+	if len(queryWords) > 1 {
+		if titleMatches > 0 && (top.Score >= 3.0 || top.IsPhraseMatch) {
+			return true
+		}
+		return false
+	}
+
+	// For single-word queries, must appear in title or have very high score
+	if titleMatches > 0 || (top.Score >= 4.0 && strings.Contains(strings.ToLower(top.Snippet), qClean)) {
+		return true
+	}
+
+	return false
 }
 
 func (gw *APIGateway) handleSuggest(w http.ResponseWriter, r *http.Request) {

@@ -33,6 +33,8 @@ export interface SearchResponse {
   results: SearchResultItem[];
   did_you_mean?: string;
   instant_answer?: InstantAnswer;
+  is_live_discovered?: boolean;
+  source_notice?: string;
 }
 
 export interface EngineStats {

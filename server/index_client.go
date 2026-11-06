@@ -26,15 +26,17 @@ type SearchResultItem struct {
 }
 
 type SearchResponse struct {
-	Query         string             `json:"query"`
-	DidYouMean    string             `json:"did_you_mean,omitempty"`
-	InstantAnswer *InstantAnswer     `json:"instant_answer,omitempty"`
-	TotalHits     int                `json:"total_hits"`
-	TookMs        float64            `json:"took_ms"`
-	Page          int                `json:"page"`
-	PageSize      int                `json:"page_size"`
-	TotalPages    int                `json:"total_pages"`
-	Results       []SearchResultItem `json:"results"`
+	Query            string             `json:"query"`
+	DidYouMean       string             `json:"did_you_mean,omitempty"`
+	InstantAnswer    *InstantAnswer     `json:"instant_answer,omitempty"`
+	TotalHits        int                `json:"total_hits"`
+	TookMs           float64            `json:"took_ms"`
+	Page             int                `json:"page"`
+	PageSize         int                `json:"page_size"`
+	TotalPages       int                `json:"total_pages"`
+	Results          []SearchResultItem `json:"results"`
+	IsLiveDiscovered bool               `json:"is_live_discovered,omitempty"`
+	SourceNotice     string             `json:"source_notice,omitempty"`
 }
 
 type IndexClient struct {
@@ -114,5 +116,18 @@ func (c *IndexClient) Stats() (map[string]interface{}, error) {
 	}
 
 	return stats, nil
+}
+
+func (c *IndexClient) Reload() error {
+	resp, err := c.client.Post(c.baseURL+"/reload", "application/json", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("reload failed with HTTP status: %d", resp.StatusCode)
+	}
+	return nil
 }
 

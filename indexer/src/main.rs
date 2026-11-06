@@ -56,7 +56,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let server = ApiServer::new(Arc::new(index), port);
+    let server = ApiServer::new(
+        Arc::new(std::sync::RwLock::new(index)),
+        docs_path,
+        pagerank_path,
+        port,
+    );
     server.start()?;
 
     Ok(())

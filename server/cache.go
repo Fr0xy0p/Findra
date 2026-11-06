@@ -103,3 +103,9 @@ func (c *QueryCache) Stats() (hits uint64, misses uint64, count int) {
 	return c.hits, c.misses, len(c.items)
 }
 
+func (c *QueryCache) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.items = make(map[string]CacheItem)
+}
+
