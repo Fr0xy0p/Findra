@@ -5,9 +5,16 @@ import { ExternalLink, Globe, Award, Sparkles, Hash, ShieldCheck, Link, CheckChe
 interface Props {
   result: ResultType;
   query: string;
+  onOpenInBrowser?: (url: string, title?: string) => void;
+  inAppBrowserEnabled?: boolean;
 }
 
-export const SearchResultItem: React.FC<Props> = ({ result, query }) => {
+export const SearchResultItem: React.FC<Props> = ({
+  result,
+  query,
+  onOpenInBrowser,
+  inAppBrowserEnabled = true,
+}) => {
   // Extract domain and clean path for breadcrumb
   let domain = result.domain || '';
   let pathBreadcrumb = '';
@@ -77,17 +84,46 @@ export const SearchResultItem: React.FC<Props> = ({ result, query }) => {
         )}
       </div>
 
-      {/* Clickable Title */}
-      <h2 className="text-xl font-normal leading-normal mb-1">
-        <a
-          href={result.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[#1a0dab] dark:text-[#8ab4f8] hover:underline visited:text-[#681da8] dark:visited:text-[#c58af9] flex items-center inline"
-        >
-          {result.title || result.url}
-        </a>
-      </h2>
+      {/* Clickable Title & Actions */}
+      <div className="flex items-start justify-between gap-3 mb-1">
+        <h2 className="text-xl font-normal leading-normal">
+          <a
+            href={result.url}
+            onClick={(e) => {
+              if (inAppBrowserEnabled && onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
+                e.preventDefault();
+                onOpenInBrowser(result.url, result.title);
+              }
+            }}
+            className="text-[#1a0dab] dark:text-[#8ab4f8] hover:underline visited:text-[#681da8] dark:visited:text-[#c58af9] cursor-pointer inline"
+          >
+            {result.title || result.url}
+          </a>
+        </h2>
+
+        {/* Quick Action Buttons */}
+        <div className="flex items-center space-x-1.5 flex-shrink-0 pt-1">
+          {onOpenInBrowser && (
+            <button
+              onClick={() => onOpenInBrowser(result.url, result.title)}
+              title="Open inside Findra Browser"
+              className="px-2 py-0.5 rounded-md text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 transition-colors flex items-center space-x-1 cursor-pointer"
+            >
+              <Globe className="w-3 h-3" />
+              <span className="hidden sm:inline">Open in Findra</span>
+            </button>
+          )}
+          <a
+            href={result.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open in new browser tab"
+            className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      </div>
 
       {/* Snippet with Term Highlighting */}
       <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-2">

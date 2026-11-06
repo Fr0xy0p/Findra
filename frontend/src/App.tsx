@@ -5,6 +5,7 @@ import { KnowledgeCard } from './components/KnowledgeCard';
 import { InstantAnswerCard } from './components/InstantAnswerCard';
 import { Pagination } from './components/Pagination';
 import { CrawlModal } from './components/CrawlModal';
+import { EmbeddedBrowser } from './components/EmbeddedBrowser';
 import { SearchResponse, EngineStats } from './types';
 import {
   Search,
@@ -45,6 +46,26 @@ export const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isCrawlModalOpen, setIsCrawlModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'tech' | 'docs' | 'news'>(initialUrlState.tab);
+
+  // In-App Browser State
+  const [inAppBrowserUrl, setInAppBrowserUrl] = useState<string | null>(null);
+  const [inAppBrowserTitle, setInAppBrowserTitle] = useState<string | null>(null);
+  const [inAppBrowserEnabled, setInAppBrowserEnabled] = useState(true);
+  const [isSplitView, setIsSplitView] = useState(false);
+
+  const openInBrowser = (url: string, title?: string) => {
+    setInAppBrowserUrl(url);
+    setInAppBrowserTitle(title || url);
+  };
+
+  const closeBrowser = () => {
+    setInAppBrowserUrl(null);
+    setInAppBrowserTitle(null);
+  };
+
+  const toggleSplitView = () => {
+    setIsSplitView((prev) => !prev);
+  };
 
   // Sync dark mode class with HTML element
   useEffect(() => {
@@ -309,10 +330,28 @@ export const App: React.FC = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center space-x-3 self-end sm:self-auto">
+              <div className="flex items-center space-x-2.5 self-end sm:self-auto">
+                <button
+                  onClick={() => setInAppBrowserEnabled(!inAppBrowserEnabled)}
+                  title={
+                    inAppBrowserEnabled
+                      ? 'In-App Browser is ON: sites open directly inside Findra'
+                      : 'In-App Browser is OFF: sites open in external browser tabs'
+                  }
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
+                    inAppBrowserEnabled
+                      ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                      : 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span className="hidden md:inline">In-App Browser:</span>
+                  <span className="font-bold">{inAppBrowserEnabled ? 'ON' : 'OFF'}</span>
+                </button>
+
                 <button
                   onClick={() => setIsCrawlModalOpen(true)}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900 hover:bg-orange-100 transition-colors"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900 hover:bg-orange-100 transition-colors cursor-pointer"
                 >
                   <Bot className="w-3.5 h-3.5" />
                   <span>Crawl</span>
@@ -320,7 +359,7 @@ export const App: React.FC = () => {
 
                 <button
                   onClick={() => setIsDarkMode(!isDarkMode)}
-                  className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
                 </button>
@@ -408,15 +447,24 @@ export const App: React.FC = () => {
                 ))}
               </div>
             ) : searchResponse && (searchResponse.results.length > 0 || searchResponse.instant_answer) ? (
-              /* Result Cards + Right Knowledge Panel */
-              <div className="flex justify-between items-start gap-12 pl-2 sm:pl-24">
-                <div className="flex-1 max-w-2xl">
+              /* Result Cards + Right Knowledge Panel OR Split In-App Browser */
+              <div className={`flex items-start gap-8 ${isSplitView && inAppBrowserUrl ? 'pl-2' : 'pl-2 sm:pl-24'}`}>
+                <div className={`flex-1 transition-all ${isSplitView && inAppBrowserUrl ? 'max-w-xl' : 'max-w-2xl'}`}>
                   {searchResponse.instant_answer && (
-                    <InstantAnswerCard answer={searchResponse.instant_answer} />
+                    <InstantAnswerCard
+                      answer={searchResponse.instant_answer}
+                      onOpenInBrowser={openInBrowser}
+                    />
                   )}
 
                   {searchResponse.results.map((item) => (
-                    <SearchResultItem key={item.doc_id} result={item} query={query} />
+                    <SearchResultItem
+                      key={item.doc_id}
+                      result={item}
+                      query={query}
+                      onOpenInBrowser={openInBrowser}
+                      inAppBrowserEnabled={inAppBrowserEnabled}
+                    />
                   ))}
 
                   <Pagination
@@ -426,11 +474,22 @@ export const App: React.FC = () => {
                   />
                 </div>
 
-                {/* Right Knowledge Panel */}
-                <KnowledgeCard
-                  topResult={searchResponse.results[0]}
-                  query={query}
-                />
+                {/* If Split Browser is Open: render In-App Browser side-by-side */}
+                {isSplitView && inAppBrowserUrl ? (
+                  <EmbeddedBrowser
+                    initialUrl={inAppBrowserUrl}
+                    initialTitle={inAppBrowserTitle || undefined}
+                    onClose={closeBrowser}
+                    isSplitView={true}
+                    onToggleSplitView={toggleSplitView}
+                  />
+                ) : (
+                  /* Right Knowledge Panel */
+                  <KnowledgeCard
+                    topResult={searchResponse.results[0]}
+                    query={query}
+                  />
+                )}
               </div>
             ) : (
               /* No results */
@@ -450,6 +509,17 @@ export const App: React.FC = () => {
             )}
           </main>
         </div>
+      )}
+
+      {/* Fullscreen Embedded In-App Browser */}
+      {inAppBrowserUrl && !isSplitView && (
+        <EmbeddedBrowser
+          initialUrl={inAppBrowserUrl}
+          initialTitle={inAppBrowserTitle || undefined}
+          onClose={closeBrowser}
+          isSplitView={false}
+          onToggleSplitView={toggleSplitView}
+        />
       )}
 
       {/* Crawl Modal */}

@@ -296,6 +296,8 @@ func main() {
 	mux.HandleFunc("/api/suggest", gw.handleSuggest)
 	mux.HandleFunc("/api/stats", gw.handleStats)
 	mux.HandleFunc("/api/crawl", gw.handleCrawl)
+	mux.HandleFunc("/api/proxy", gw.handleBrowserProxy)
+	mux.HandleFunc("/api/reader", gw.handleReaderMode)
 
 	// Serve Frontend UI
 	mux.Handle("/", &SPAServer{staticDir: *staticDir})

@@ -4,9 +4,10 @@ import { Calculator, ArrowRightLeft, Sparkles, BookOpen, ExternalLink, Bot, Chec
 
 interface Props {
   answer: InstantAnswer;
+  onOpenInBrowser?: (url: string, title?: string) => void;
 }
 
-export const InstantAnswerCard: React.FC<Props> = ({ answer }) => {
+export const InstantAnswerCard: React.FC<Props> = ({ answer, onOpenInBrowser }) => {
   const isAI = answer.type === 'ai_overview';
 
   if (isAI) {
@@ -54,9 +55,13 @@ export const InstantAnswerCard: React.FC<Props> = ({ answer }) => {
               <span className="text-slate-400 dark:text-slate-500 font-medium">Source:</span>
               <a
                 href={answer.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 hover:underline inline-flex items-center gap-1 font-semibold truncate max-w-xs sm:max-w-md"
+                onClick={(e) => {
+                  if (onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
+                    e.preventDefault();
+                    onOpenInBrowser(answer.source_url!, answer.source_title || answer.title);
+                  }
+                }}
+                className="text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 hover:underline inline-flex items-center gap-1 font-semibold truncate max-w-xs sm:max-w-md cursor-pointer"
               >
                 <span>{answer.source_title || 'Authoritative Reference'}</span>
                 <ExternalLink className="w-3 h-3 flex-shrink-0" />
@@ -121,9 +126,13 @@ export const InstantAnswerCard: React.FC<Props> = ({ answer }) => {
         <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
           <a
             href={answer.source_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+            onClick={(e) => {
+              if (onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
+                e.preventDefault();
+                onOpenInBrowser(answer.source_url!, answer.source_title || answer.title);
+              }
+            }}
+            className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
           >
             <span>{answer.source_title || 'Reference'}</span>
             <ExternalLink className="w-3 h-3" />
