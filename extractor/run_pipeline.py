@@ -1,6 +1,7 @@
 """
 Data Extraction & Preprocessing Pipeline Runner.
-Transforms raw crawled documents into clean tokenized indices, forward stores, and link graphs.
+Transforms raw crawled documents into clean tokenized indices, forward stores,
+incoming anchor-text graph, and link graphs for PageRank and TrustRank.
 """
 
 import sys
@@ -43,31 +44,56 @@ def run_pipeline(input_path: str, output_dir: str):
 
     url_to_id: Dict[str, int] = {}
     id_to_url: Dict[int, str] = {}
-    parsed_docs: List[Dict[str, Any]] = []
+    extracted_cache: Dict[str, Dict[str, Any]] = {}
+    inbound_anchors_by_url: Dict[str, List[str]] = {}
 
-    # First pass: assign numeric doc IDs to all discovered URLs
+    # Pass 1: Parse HTML, extract links, assign IDs, and accumulate inbound anchor text
+    print("[*] Pass 1: Extracting HTML metadata, assigning IDs, and aggregating inbound anchor text...")
     doc_id = 0
-    for doc in raw_docs:
-        url = doc.get("url")
-        if url and url not in url_to_id:
+    for raw in raw_docs:
+        url = raw.get("url")
+        raw_html = raw.get("html", "")
+        if not url or not raw_html:
+            continue
+
+        if url not in url_to_id:
             url_to_id[url] = doc_id
             id_to_url[doc_id] = url
             doc_id += 1
 
-    # Second pass: Parse HTML and process text
-    print("[*] Parsing HTML, extracting structural metadata, and tokenizing...")
+        extracted = extract_html_content(raw_html, url)
+        extracted_cache[url] = extracted
+
+        # Collect outgoing links and inbound anchors
+        for out in extracted["outgoing_links"]:
+            target_url = out["target_url"]
+            anchor = out.get("anchor_text", "").strip()
+            if target_url not in url_to_id:
+                url_to_id[target_url] = doc_id
+                id_to_url[doc_id] = target_url
+                doc_id += 1
+
+            if anchor and len(anchor) > 1:
+                if target_url not in inbound_anchors_by_url:
+                    inbound_anchors_by_url[target_url] = []
+                inbound_anchors_by_url[target_url].append(anchor)
+
+    print(f"[*] Discovered {len(url_to_id)} total unique URLs and aggregated inbound anchors.")
+
+    # Pass 2: Ingest body text, titles, headings, and inbound anchor text (Google-style)
+    print("[*] Pass 2: Tokenizing, computing positional indices, and embedding anchor text...")
     link_edges: List[Dict[str, Any]] = []
+    parsed_docs: List[Dict[str, Any]] = []
 
     documents_out_path = os.path.join(output_dir, "documents.jsonl")
     with open(documents_out_path, "w", encoding="utf-8") as doc_f:
         for raw in raw_docs:
             url = raw.get("url")
-            raw_html = raw.get("html", "")
-            if not url or not raw_html:
+            if not url or url not in extracted_cache:
                 continue
 
             current_id = url_to_id[url]
-            extracted = extract_html_content(raw_html, url)
+            extracted = extracted_cache[url]
 
             # Process full body text
             body_tokens_with_pos = process_with_positions(extracted["text"])
@@ -88,6 +114,12 @@ def run_pipeline(input_path: str, output_dir: str):
             headings_text = " ".join(extracted["headings"])
             heading_tokens = process_text(headings_text, stem=True, remove_stops=True)
 
+            # Process inbound anchor texts (Google's anchor text propagation)
+            anchors_list = inbound_anchors_by_url.get(url, [])
+            combined_anchors = " ".join(anchors_list)
+            anchor_tokens = process_text(combined_anchors, stem=True, remove_stops=True)
+            anchor_tf = compute_term_frequencies(anchor_tokens)
+
             parsed_record = {
                 "doc_id": current_id,
                 "url": url,
@@ -100,8 +132,11 @@ def run_pipeline(input_path: str, output_dir: str):
                 "tokens": tokens,
                 "title_tokens": title_tokens,
                 "heading_tokens": heading_tokens,
+                "anchor_tokens": anchor_tokens,
+                "anchor_frequencies": anchor_tf,
                 "term_frequencies": tf,
                 "term_positions": term_positions,
+                "inbound_anchor_count": len(anchors_list),
                 "crawled_at": raw.get("crawled_at", "")
             }
 
@@ -111,12 +146,6 @@ def run_pipeline(input_path: str, output_dir: str):
             # Build link edges
             for out_link in extracted["outgoing_links"]:
                 target_url = out_link["target_url"]
-                # Give target URL an ID if not yet seen
-                if target_url not in url_to_id:
-                    url_to_id[target_url] = doc_id
-                    id_to_url[doc_id] = target_url
-                    doc_id += 1
-
                 link_edges.append({
                     "src_id": current_id,
                     "target_id": url_to_id[target_url],
@@ -132,7 +161,7 @@ def run_pipeline(input_path: str, output_dir: str):
     with open(os.path.join(output_dir, "id_to_url.json"), "w", encoding="utf-8") as f:
         json.dump(id_to_url, f, indent=2)
 
-    # Save link graph for PageRank engine
+    # Save link graph for PageRank & TrustRank engine
     graph_data = {
         "num_nodes": len(url_to_id),
         "num_edges": len(link_edges),
@@ -143,7 +172,7 @@ def run_pipeline(input_path: str, output_dir: str):
 
     print(f"[✓] Parsing complete! Successfully processed {len(parsed_docs)} documents.")
     print(f"[✓] Link graph has {graph_data['num_nodes']} nodes and {graph_data['num_edges']} edges.")
-    print(f"[✓] Saved results to {output_dir}")
+    print(f"[✓] Saved results with anchor text signals to {output_dir}")
 
 
 if __name__ == "__main__":
@@ -153,4 +182,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     run_pipeline(args.input, args.output)
-

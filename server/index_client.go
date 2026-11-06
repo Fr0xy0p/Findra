@@ -10,28 +10,31 @@ import (
 )
 
 type SearchResultItem struct {
-	DocID         uint32   `json:"doc_id"`
-	URL           string   `json:"url"`
-	Domain        string   `json:"domain"`
-	Title         string   `json:"title"`
-	Snippet       string   `json:"snippet"`
-	Score         float64  `json:"score"`
-	BM25Score     float64  `json:"bm25_score"`
-	PageRankScore float64  `json:"pagerank_score"`
-	DocLength     uint32   `json:"doc_length"`
-	Headings      []string `json:"headings"`
-	IsPhraseMatch bool     `json:"is_phrase_match,omitempty"`
+	DocID           uint32   `json:"doc_id"`
+	URL             string   `json:"url"`
+	Domain          string   `json:"domain"`
+	Title           string   `json:"title"`
+	Snippet         string   `json:"snippet"`
+	Score           float64  `json:"score"`
+	BM25Score       float64  `json:"bm25_score"`
+	PageRankScore   float64  `json:"pagerank_score"`
+	TrustRankScore  float64  `json:"trustrank_score,omitempty"`
+	DocLength       uint32   `json:"doc_length"`
+	Headings        []string `json:"headings"`
+	IsPhraseMatch   bool     `json:"is_phrase_match,omitempty"`
+	MatchedInAnchor bool     `json:"matched_in_anchor,omitempty"`
 }
 
 type SearchResponse struct {
-	Query      string             `json:"query"`
-	DidYouMean string             `json:"did_you_mean,omitempty"`
-	TotalHits  int                `json:"total_hits"`
-	TookMs     float64            `json:"took_ms"`
-	Page       int                `json:"page"`
-	PageSize   int                `json:"page_size"`
-	TotalPages int                `json:"total_pages"`
-	Results    []SearchResultItem `json:"results"`
+	Query         string             `json:"query"`
+	DidYouMean    string             `json:"did_you_mean,omitempty"`
+	InstantAnswer *InstantAnswer     `json:"instant_answer,omitempty"`
+	TotalHits     int                `json:"total_hits"`
+	TookMs        float64            `json:"took_ms"`
+	Page          int                `json:"page"`
+	PageSize      int                `json:"page_size"`
+	TotalPages    int                `json:"total_pages"`
+	Results       []SearchResultItem `json:"results"`
 }
 
 type IndexClient struct {

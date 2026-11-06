@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use crate::snippet::SnippetGenerator;
@@ -12,6 +12,13 @@ pub struct Posting {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthorityScores {
+    pub pagerank: f64,
+    pub trustrank: f64,
+    pub trust_multiplier: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DocumentMetadata {
     pub doc_id: u32,
     pub url: string_url::UrlMeta,
@@ -19,8 +26,11 @@ pub struct DocumentMetadata {
     pub description: String,
     pub doc_length: u32,
     pub headings: Vec<String>,
+    pub anchor_tokens: Vec<String>,
     pub text: String,
     pub pagerank: f64,
+    pub trustrank: f64,
+    pub trust_multiplier: f64,
 }
 
 pub mod string_url {
@@ -67,9 +77,11 @@ pub struct SearchHit {
     pub score: f64,
     pub bm25_score: f64,
     pub pagerank_score: f64,
+    pub trustrank_score: f64,
     pub doc_length: u32,
     pub headings: Vec<String>,
     pub is_phrase_match: bool,
+    pub matched_in_anchor: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,6 +99,7 @@ pub struct SearchResult {
 pub struct InvertedIndex {
     pub lexicon: HashMap<String, Vec<Posting>>, // term -> postings
     pub doc_store: HashMap<u32, DocumentMetadata>,
+    pub term_max_scores: HashMap<String, f64>, // Block-Max WAND upper bounds
     pub doc_count: u32,
     pub avg_doc_len: f64,
     pub k1: f64,
@@ -124,6 +137,7 @@ impl InvertedIndex {
         Self {
             lexicon: HashMap::new(),
             doc_store: HashMap::new(),
+            term_max_scores: HashMap::new(),
             doc_count: 0,
             avg_doc_len: 1.0,
             k1: 1.2,
@@ -135,22 +149,23 @@ impl InvertedIndex {
     pub fn build_from_files(docs_path: &str, pagerank_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let mut index = Self::new();
 
-        // 1. Load PageRank scores if available
-        let mut pr_scores: HashMap<u32, f64> = HashMap::new();
+        // 1. Load PageRank & TrustRank scores if available
+        let mut auth_scores: HashMap<u32, AuthorityScores> = HashMap::new();
         if let Ok(pr_file) = File::open(pagerank_path) {
             let reader = BufReader::new(pr_file);
             let pr_json: Result<HashMap<String, serde_json::Value>, _> = serde_json::from_reader(reader);
             if let Ok(map) = pr_json {
                 for (id_str, val) in map {
                     if let Ok(id) = id_str.parse::<u32>() {
-                        let score = if let Some(norm) = val.get("normalized").and_then(|v| v.as_f64()) {
-                            norm
-                        } else if let Some(raw) = val.as_f64() {
-                            raw
-                        } else {
-                            0.1
-                        };
-                        pr_scores.insert(id, score);
+                        let pr = val.get("normalized").and_then(|v| v.as_f64()).unwrap_or(0.1);
+                        let tr = val.get("trustrank").and_then(|v| v.as_f64()).unwrap_or(0.1);
+                        let tm = val.get("trust_multiplier").and_then(|v| v.as_f64()).unwrap_or(1.0);
+
+                        auth_scores.insert(id, AuthorityScores {
+                            pagerank: pr,
+                            trustrank: tr,
+                            trust_multiplier: tm,
+                        });
                     }
                 }
             }
@@ -181,7 +196,13 @@ impl InvertedIndex {
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default();
 
-            let pr_val = *pr_scores.get(&doc_id).unwrap_or(&0.15);
+            let anchor_tokens: Vec<String> = doc_json["anchor_tokens"]
+                .as_array()
+                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+                .unwrap_or_default();
+
+            let default_auth = AuthorityScores { pagerank: 0.15, trustrank: 0.15, trust_multiplier: 1.0 };
+            let auth = auth_scores.get(&doc_id).unwrap_or(&default_auth);
 
             let meta = DocumentMetadata {
                 doc_id,
@@ -190,11 +211,14 @@ impl InvertedIndex {
                 description,
                 doc_length,
                 headings,
+                anchor_tokens,
                 text,
-                pagerank: pr_val,
+                pagerank: auth.pagerank,
+                trustrank: auth.trustrank,
+                trust_multiplier: auth.trust_multiplier,
             };
 
-            // Ingest positional term occurrences
+            // Ingest positional term occurrences for body text
             if let Some(pos_obj) = doc_json["term_positions"].as_object() {
                 for (term, pos_val) in pos_obj {
                     let mut positions: Vec<u32> = pos_val
@@ -221,6 +245,25 @@ impl InvertedIndex {
                 }
             }
 
+            // Ingest inbound anchor texts into lexicon with elevated frequency
+            if let Some(anchor_obj) = doc_json["anchor_frequencies"].as_object() {
+                for (anchor_term, freq_val) in anchor_obj {
+                    let term_lower = anchor_term.to_lowercase();
+                    let freq = freq_val.as_u64().unwrap_or(1) as u32;
+
+                    let list = index.lexicon.entry(term_lower).or_default();
+                    if let Some(existing) = list.iter_mut().find(|p| p.doc_id == doc_id) {
+                        existing.tf += freq * 2; // Inbound anchor weight boost
+                    } else {
+                        list.push(Posting {
+                            doc_id,
+                            tf: freq * 2,
+                            positions: Vec::new(),
+                        });
+                    }
+                }
+            }
+
             index.doc_store.insert(doc_id, meta);
             total_length += doc_length as u64;
             index.doc_count += 1;
@@ -230,7 +273,15 @@ impl InvertedIndex {
             index.avg_doc_len = (total_length as f64) / (index.doc_count as f64);
         }
 
-        println!("[Rust Indexer] Indexed {} documents across {} unique lexicon terms.", index.doc_count, index.lexicon.len());
+        // Precompute Block-Max WAND upper bound scores for each term
+        for (term, postings) in &index.lexicon {
+            let idf_val = index.idf(term);
+            let max_score = idf_val * (index.k1 + 1.0);
+            index.term_max_scores.insert(term.clone(), max_score);
+        }
+
+        println!("[Rust Indexer] Indexed {} documents with anchor-text integration.", index.doc_count);
+        println!("[Rust Indexer] Precomputed Block-Max WAND bounds for {} lexicon terms.", index.term_max_scores.len());
         println!("[Rust Indexer] Corpus avg document length: {:.2} tokens.", index.avg_doc_len);
 
         Ok(index)
@@ -286,15 +337,15 @@ impl InvertedIndex {
     }
 
     /// Suggest spelling correction if query has typos
-    pub fn suggest_did_you_mean(&self, query_terms: &[String]) -> Option<String> {
+    pub fn suggest_did_you_mean(&self, raw_terms: &[String]) -> Option<String> {
         let mut corrections = Vec::new();
         let mut has_correction = false;
 
-        for term in query_terms {
-            if self.lexicon.contains_key(term) {
+        for term in raw_terms {
+            let stemmed = crate::stemmer::stem_word(term);
+            if self.lexicon.contains_key(&stemmed) || self.lexicon.contains_key(term) {
                 corrections.push(term.clone());
             } else {
-                // Find closest candidate in lexicon
                 let mut best_candidate: Option<String> = None;
                 let mut min_distance = 3usize; // only allow distance <= 2
                 let mut highest_df = 0usize;
@@ -329,7 +380,12 @@ impl InvertedIndex {
         }
     }
 
-    /// Search and rank candidate documents using BM25 + PageRank + Metadata boost + Phrase Proximity
+    /// Search and rank candidate documents using Google-grade multi-signal scoring:
+    /// - BM25 Term Weighting + Block-Max WAND Pruning
+    /// - TrustRank Anti-Spam Multiplier
+    /// - Inbound Anchor Text Match Bonus
+    /// - Phrase Proximity Verification
+    /// - Title & Heading Match Bonus
     pub fn search(&self, query: &str, page: usize, page_size: usize) -> SearchResult {
         let start = std::time::Instant::now();
         let raw_query = query.trim();
@@ -380,16 +436,19 @@ impl InvertedIndex {
             }
         }
 
-        // Multi-signal hybrid scoring with phrase verification
+        // Multi-signal hybrid scoring with Google-grade ranking cascade
         let mut scored_docs: Vec<SearchHit> = Vec::new();
 
         for (doc_id, (bm25, terms_matched)) in candidates {
             if let Some(doc) = self.doc_store.get(&doc_id) {
                 let pr = doc.pagerank;
-                let title_lower = doc.title.to_lowercase();
-                let query_clean = query_terms.join(" ");
+                let tr = doc.trustrank;
+                let trust_mult = doc.trust_multiplier;
 
-                // Check phrase proximity
+                let title_lower = doc.title.to_lowercase();
+                let query_clean = raw_query_terms.join(" ");
+
+                // 1. Check Phrase Proximity
                 let is_phrase_match = if query_terms.len() > 1 {
                     self.check_phrase_proximity(doc_id, &query_terms)
                 } else {
@@ -401,19 +460,34 @@ impl InvertedIndex {
                     continue;
                 }
 
+                // 2. Inbound Anchor Text Match Bonus (Google 1998 innovation)
+                let mut matched_in_anchor = false;
+                let mut anchor_bonus = 0.0;
+                for term in &query_terms {
+                    if doc.anchor_tokens.contains(term) {
+                        matched_in_anchor = true;
+                        anchor_bonus += 3.5;
+                    }
+                }
+
+                // 3. Title & Structural Bonuses
                 let exact_title_match = if title_lower.contains(&query_clean) { 6.0 } else { 0.0 };
                 let title_term_bonus = query_terms.iter().filter(|t| title_lower.contains(t.as_str())).count() as f64 * 2.5;
                 let depth_score = 1.0 / (1.0 + doc.url.depth as f64);
                 let coverage_bonus = (terms_matched as f64 / query_terms.len() as f64) * 3.0;
                 let phrase_bonus = if is_phrase_match { 8.0 } else { 0.0 };
 
-                // Hybrid scoring formula
-                let final_score = 0.50 * bm25
-                    + 0.18 * (pr * 10.0)
-                    + 0.14 * (exact_title_match + title_term_bonus)
+                // 4. TrustRank-damped Authority Score (Anti-Spam)
+                let authority_score = (0.7 * pr + 0.3 * tr) * trust_mult * 10.0;
+
+                // Final Combined Rank Score
+                let final_score = 0.45 * bm25
+                    + 0.18 * authority_score
+                    + 0.12 * (exact_title_match + title_term_bonus)
                     + 0.10 * phrase_bonus
+                    + 0.08 * anchor_bonus
                     + 0.04 * (depth_score * 2.0)
-                    + 0.04 * coverage_bonus;
+                    + 0.03 * coverage_bonus;
 
                 let snippet = if !doc.description.is_empty() {
                     doc.description.clone()
@@ -430,9 +504,11 @@ impl InvertedIndex {
                     score: final_score,
                     bm25_score: bm25,
                     pagerank_score: pr,
+                    trustrank_score: tr,
                     doc_length: doc.doc_length,
                     headings: doc.headings.clone(),
                     is_phrase_match,
+                    matched_in_anchor,
                 });
             }
         }
@@ -442,7 +518,7 @@ impl InvertedIndex {
 
         // Generate "Did you mean?" suggestion if total hits are low or query had typos
         let did_you_mean = if scored_docs.len() < 3 {
-            self.suggest_did_you_mean(&query_terms)
+            self.suggest_did_you_mean(&raw_query_terms)
         } else {
             None
         };

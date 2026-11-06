@@ -1,6 +1,6 @@
 import React from 'react';
 import { SearchResultItem as ResultType } from '../types';
-import { ExternalLink, Globe, Award, Sparkles, Hash } from 'lucide-react';
+import { ExternalLink, Globe, Award, Sparkles, Hash, ShieldCheck, Link, CheckCheck } from 'lucide-react';
 
 interface Props {
   result: ResultType;
@@ -82,16 +82,39 @@ export const SearchResultItem: React.FC<Props> = ({ result, query }) => {
         {renderHighlightedSnippet(result.snippet, query)}
       </p>
 
-      {/* Signals / Metadata tags: PageRank, BM25, Length */}
+      {/* Signals / Metadata tags: PageRank, TrustRank, BM25, Anchor Text, Phrase */}
       <div className="flex items-center flex-wrap gap-2 text-[11px] text-slate-500 dark:text-slate-400">
         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
           <Award className="w-3 h-3 mr-1 text-blue-600" />
           PageRank: {formattedPr}%
         </span>
+
+        {result.trustrank_score !== undefined && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-900">
+            <ShieldCheck className="w-3 h-3 mr-1 text-violet-600" />
+            TrustRank: {(result.trustrank_score * 100).toFixed(1)}%
+          </span>
+        )}
+
         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
           <Sparkles className="w-3 h-3 mr-1 text-emerald-600" />
           BM25: {result.bm25_score.toFixed(2)}
         </span>
+
+        {result.is_phrase_match && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900 font-medium">
+            <CheckCheck className="w-3 h-3 mr-1 text-amber-600" />
+            Exact Phrase
+          </span>
+        )}
+
+        {result.matched_in_anchor && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-900 font-medium">
+            <Link className="w-3 h-3 mr-1 text-cyan-600" />
+            Backlink Anchor Match
+          </span>
+        )}
+
         <span className="text-slate-400 dark:text-slate-500">
           {result.doc_length} tokens
         </span>

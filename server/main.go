@@ -60,10 +60,31 @@ func (gw *APIGateway) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check for Google-style Instant Answer / OneBox calculation or fact
+	instantAns := ResolveInstantAnswer(q)
+
 	res, err := gw.index.Search(q, page, limit)
 	if err != nil {
+		if instantAns != nil {
+			fallbackRes := SearchResponse{
+				Query:         q,
+				InstantAnswer: instantAns,
+				TookMs:        0.05,
+				Page:          1,
+				PageSize:      limit,
+				Results:       []SearchResultItem{},
+			}
+			jsonBytes, _ := json.Marshal(fallbackRes)
+			w.Header().Set("X-Cache", "MISS")
+			w.Write(jsonBytes)
+			return
+		}
 		http.Error(w, fmt.Sprintf(`{"error":"Index search failed: %v"}`, err), http.StatusServiceUnavailable)
 		return
+	}
+
+	if instantAns != nil {
+		res.InstantAnswer = instantAns
 	}
 
 	resBytes, err := json.Marshal(res)

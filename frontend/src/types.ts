@@ -7,9 +7,20 @@ export interface SearchResultItem {
   score: number;
   bm25_score: number;
   pagerank_score: number;
+  trustrank_score?: number;
   doc_length: number;
   crawled_at?: string;
   headings?: string[];
+  is_phrase_match?: boolean;
+  matched_in_anchor?: boolean;
+}
+
+export interface InstantAnswer {
+  type: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  badge?: string;
 }
 
 export interface SearchResponse {
@@ -21,6 +32,7 @@ export interface SearchResponse {
   total_pages: number;
   results: SearchResultItem[];
   did_you_mean?: string;
+  instant_answer?: InstantAnswer;
 }
 
 export interface EngineStats {

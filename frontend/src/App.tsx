@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SearchBar } from './components/SearchBar';
 import { SearchResultItem } from './components/SearchResultItem';
 import { KnowledgeCard } from './components/KnowledgeCard';
+import { InstantAnswerCard } from './components/InstantAnswerCard';
 import { Pagination } from './components/Pagination';
 import { CrawlModal } from './components/CrawlModal';
 import { SearchResponse, EngineStats } from './types';
@@ -307,10 +308,14 @@ export const App: React.FC = () => {
                   </div>
                 ))}
               </div>
-            ) : searchResponse && searchResponse.results.length > 0 ? (
+            ) : searchResponse && (searchResponse.results.length > 0 || searchResponse.instant_answer) ? (
               /* Result Cards + Right Knowledge Panel */
               <div className="flex justify-between items-start gap-12 pl-2 sm:pl-24">
                 <div className="flex-1 max-w-2xl">
+                  {searchResponse.instant_answer && (
+                    <InstantAnswerCard answer={searchResponse.instant_answer} />
+                  )}
+
                   {searchResponse.results.map((item) => (
                     <SearchResultItem key={item.doc_id} result={item} query={query} />
                   ))}
