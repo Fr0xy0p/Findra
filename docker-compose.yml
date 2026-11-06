@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  search-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nexus-search-engine
+    ports:
+      - "8080:8080" # Go API Gateway & TypeScript Search UI
+      - "8081:8081" # Rust Inverted Index Server
+    environment:
+      - PORT=8080
+      - RUST_INDEX_URL=http://localhost:8081
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+

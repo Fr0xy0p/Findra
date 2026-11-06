@@ -1,0 +1,37 @@
+# Virtual Environment & Python Caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Node & Frontend
+node_modules/
+frontend/dist/
+frontend/node_modules/
+.npm
+*.tsbuildinfo
+
+# Rust Build Artifacts
+indexer/target/
+Cargo.lock
+
+# Compiled Binaries
+crawler/crawler_bin
+server/server_bin
+pagerank/pagerank_engine
+*.o
+*.so
+*.dylib
+
+# Crawl & Index Data (Keep seeds.txt)
+data/raw_crawled/*.jsonl
+data/parsed/*.json
+data/parsed/*.jsonl
+!data/seeds.txt
+
+# OS & IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
