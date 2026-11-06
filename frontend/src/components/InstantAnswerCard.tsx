@@ -49,3 +49,4 @@ export const InstantAnswerCard: React.FC<Props> = ({ answer }) => {
     </div>
   );
 };
+

@@ -52,3 +52,4 @@ echo "=================================================="
 echo "To view logs: tail -f logs/server.log logs/indexer.log"
 echo "To stop:      ./stop.sh"
 echo "=================================================="
+
