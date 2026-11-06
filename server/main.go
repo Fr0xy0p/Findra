@@ -134,6 +134,11 @@ func isStrongMatch(query string, res *SearchResponse) bool {
 	top := res.Results[0]
 	titleLower := strings.ToLower(top.Title)
 
+	// If top result has high score from navigational brand or BM25F match
+	if top.Score >= 15.0 {
+		return true
+	}
+
 	// Exact match of full query in title is always strong
 	if strings.Contains(titleLower, qClean) {
 		return true

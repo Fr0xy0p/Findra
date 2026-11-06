@@ -295,30 +295,28 @@ impl InvertedIndex {
         ((n - df + 0.5) / (df + 0.5) + 1.0).ln().max(0.1)
     }
 
-    /// Check if consecutive terms appear adjacently in sequence in the document's positional index
-    pub fn check_phrase_proximity(&self, doc_id: u32, terms: &[String]) -> bool {
+    /// Check phrase proximity and minimum span distance between query terms (Google MinSpan)
+    pub fn compute_min_span_proximity(&self, doc_id: u32, terms: &[String]) -> (bool, f64) {
         if terms.len() <= 1 {
-            return true;
+            return (false, 0.0);
         }
 
         let mut postings: Vec<&Posting> = Vec::new();
         for t in terms {
             if let Some(list) = self.lexicon.get(t) {
                 if let Some(p) = list.iter().find(|p| p.doc_id == doc_id) {
-                    postings.push(p);
-                } else {
-                    return false;
+                    if !p.positions.is_empty() {
+                        postings.push(p);
+                    }
                 }
-            } else {
-                return false;
             }
         }
 
         if postings.len() != terms.len() {
-            return false;
+            return (false, 0.0);
         }
 
-        // Positional verification
+        // 1. Check exact sequential adjacent phrase: p_i = p_0 + i
         for &start_pos in &postings[0].positions {
             let mut all_match = true;
             for (idx, p) in postings.iter().enumerate().skip(1) {
@@ -329,11 +327,62 @@ impl InvertedIndex {
                 }
             }
             if all_match {
-                return true;
+                return (true, 20.0);
             }
         }
 
-        false
+        // 2. Check minimum span window (terms appearing close together in text)
+        let k = terms.len();
+        let mut min_span = u32::MAX;
+
+        for &p0 in &postings[0].positions {
+            let mut cur_min = p0;
+            let mut cur_max = p0;
+
+            for p in postings.iter().skip(1) {
+                let idx = match p.positions.binary_search(&p0) {
+                    Ok(i) => i,
+                    Err(i) => {
+                        if i == 0 {
+                            0
+                        } else if i >= p.positions.len() {
+                            p.positions.len() - 1
+                        } else {
+                            if (p.positions[i] as i64 - p0 as i64).abs() < (p.positions[i - 1] as i64 - p0 as i64).abs() {
+                                i
+                            } else {
+                                i - 1
+                            }
+                        }
+                    }
+                };
+                let pos = p.positions[idx];
+                cur_min = cur_min.min(pos);
+                cur_max = cur_max.max(pos);
+            }
+
+            let span = cur_max.saturating_sub(cur_min) + 1;
+            if span < min_span {
+                min_span = span;
+            }
+        }
+
+        let k_u32 = k as u32;
+        if min_span <= k_u32 + 2 {
+            (false, 12.0)
+        } else if min_span <= k_u32 + 6 {
+            (false, 6.0)
+        } else if min_span <= k_u32 + 14 {
+            (false, 3.0)
+        } else {
+            (false, 0.0)
+        }
+    }
+
+    /// Check if consecutive terms appear adjacently in sequence in the document's positional index
+    #[allow(dead_code)]
+    pub fn check_phrase_proximity(&self, doc_id: u32, terms: &[String]) -> bool {
+        self.compute_min_span_proximity(doc_id, terms).0
     }
 
     /// Suggest spelling correction if query has typos
@@ -415,72 +464,111 @@ impl InvertedIndex {
             };
         }
 
-        // Candidate accumulator: doc_id -> (bm25_score, terms_matched)
+        // Candidate accumulator: doc_id -> (raw_bm25_score, terms_matched)
         let mut candidates: HashMap<u32, (f64, usize)> = HashMap::new();
+        let query_clean = raw_query_terms.join(" ");
 
-        for term in &query_terms {
-            if let Some(postings) = self.lexicon.get(term) {
-                let idf = self.idf(term);
+        // 1. Dual Poly-Lexicon Lookup: Check BOTH stemmed and raw terms in inverted index
+        for (i, raw_t) in raw_query_terms.iter().enumerate() {
+            let stemmed_t = &query_terms[i];
+            let mut matched_postings: HashMap<u32, Posting> = HashMap::new();
+
+            if let Some(postings) = self.lexicon.get(stemmed_t) {
                 for p in postings {
-                    let entry = candidates.entry(p.doc_id).or_insert((0.0, 0));
-                    let doc_len = self.doc_store.get(&p.doc_id).map(|d| d.doc_length).unwrap_or(1) as f64;
+                    matched_postings.insert(p.doc_id, p.clone());
+                }
+            }
+            if let Some(postings) = self.lexicon.get(raw_t) {
+                for p in postings {
+                    let entry = matched_postings.entry(p.doc_id).or_insert_with(|| p.clone());
+                    if entry.tf < p.tf {
+                        entry.tf = p.tf;
+                        entry.positions = p.positions.clone();
+                    }
+                }
+            }
 
-                    let tf = p.tf as f64;
-                    let num = tf * (self.k1 + 1.0);
-                    let den = tf + self.k1 * (1.0 - self.b + self.b * (doc_len / self.avg_doc_len));
-                    let term_bm25 = idf * (num / den);
+            let idf = self.idf(stemmed_t).max(self.idf(raw_t));
 
-                    entry.0 += term_bm25;
-                    entry.1 += 1;
+            for p in matched_postings.values() {
+                let entry = candidates.entry(p.doc_id).or_insert((0.0, 0));
+                let doc = match self.doc_store.get(&p.doc_id) {
+                    Some(d) => d,
+                    None => continue,
+                };
+
+                // BM25F Fielded Term Frequency (Google Architecture):
+                // Title (12x), Headings (5x), Inbound Anchor Text (8x), Body (1x)
+                let title_lower = doc.title.to_lowercase();
+                let title_tf = if title_lower.contains(raw_t) || title_lower.contains(stemmed_t) { 1.0 } else { 0.0 };
+                let headings_tf = doc.headings.iter().filter(|h| {
+                    let hl = h.to_lowercase();
+                    hl.contains(raw_t) || hl.contains(stemmed_t)
+                }).count() as f64;
+                let anchor_tf = if doc.anchor_tokens.contains(stemmed_t) || doc.anchor_tokens.contains(raw_t) { 1.0 } else { 0.0 };
+
+                let tf_weighted = (p.tf as f64) + (12.0 * title_tf) + (5.0 * headings_tf.min(3.0)) + (8.0 * anchor_tf);
+
+                let doc_len = doc.doc_length as f64;
+                let num = tf_weighted * (self.k1 + 1.0);
+                let den = tf_weighted + self.k1 * (1.0 - self.b + self.b * (doc_len / self.avg_doc_len));
+                let term_bm25 = idf * (num / den);
+
+                entry.0 += term_bm25;
+                entry.1 += 1;
+            }
+        }
+
+        // 2. Google Navigational Index Sweep:
+        // Any document whose domain or title exactly matches the user query is guaranteed
+        // inclusion in the candidate pool for full multi-signal ranking
+        for doc in self.doc_store.values() {
+            let domain_lower = doc.url.domain.to_lowercase();
+            let domain_clean = domain_lower.trim_start_matches("www.");
+            let title_lower = doc.title.to_lowercase();
+
+            if domain_clean.contains(&query_clean)
+                || title_lower == query_clean
+                || title_lower.starts_with(&format!("{} -", query_clean))
+                || title_lower.starts_with(&format!("{}:", query_clean))
+            {
+                let entry = candidates.entry(doc.doc_id).or_insert((8.0, query_terms.len()));
+                if entry.1 < query_terms.len() {
+                    entry.1 = query_terms.len();
                 }
             }
         }
 
-        // Multi-signal hybrid scoring with Google-grade ranking cascade
+        // Multi-signal hybrid scoring with Google/Brave ranking cascade
         let mut scored_docs: Vec<SearchHit> = Vec::new();
 
-        for (doc_id, (bm25, terms_matched)) in candidates {
+        for (doc_id, (raw_bm25, terms_matched)) in candidates {
             if let Some(doc) = self.doc_store.get(&doc_id) {
                 let pr = doc.pagerank;
                 let tr = doc.trustrank;
                 let trust_mult = doc.trust_multiplier;
 
                 let title_lower = doc.title.to_lowercase();
-                let query_clean = raw_query_terms.join(" ");
 
-                // 1. Check Phrase Proximity
-                let is_phrase_match = if query_terms.len() > 1 {
-                    self.check_phrase_proximity(doc_id, &query_terms)
+                // 1. Query Term Coordination Factor (Convex Penalty for Missing Query Terms)
+                // Documents matching ALL query terms dominate partial matches
+                let coverage_ratio = (terms_matched as f64) / (query_terms.len() as f64);
+                let coordination = if query_terms.len() > 1 {
+                    coverage_ratio.powf(2.0)
                 } else {
-                    false
+                    1.0
                 };
+                let bm25_score = raw_bm25 * coordination;
+
+                // 2. Google MinSpan Proximity & Phrase Proximity
+                let (is_phrase_match, proximity_bonus) = self.compute_min_span_proximity(doc_id, &query_terms);
 
                 // If user put quotes around search, filter strictly to exact phrase matches
                 if is_exact_phrase_required && !is_phrase_match {
                     continue;
                 }
 
-                // 2. Inbound Anchor Text Match Bonus (Google 1998 innovation)
-                let mut matched_in_anchor = false;
-                let mut anchor_bonus = 0.0;
-                for term in &query_terms {
-                    if doc.anchor_tokens.contains(term) {
-                        matched_in_anchor = true;
-                        anchor_bonus += 3.5;
-                    }
-                }
-
-                // 3. Title & Structural Bonuses
-                let exact_title_match = if title_lower.contains(&query_clean) { 6.0 } else { 0.0 };
-                let title_term_bonus = query_terms.iter().filter(|t| title_lower.contains(t.as_str())).count() as f64 * 2.5;
-                let depth_score = 1.0 / (1.0 + doc.url.depth as f64);
-                let coverage_bonus = (terms_matched as f64 / query_terms.len() as f64) * 3.0;
-                let phrase_bonus = if is_phrase_match { 8.0 } else { 0.0 };
-
-                // 4. TrustRank-damped Authority Score (Anti-Spam)
-                let authority_score = (0.7 * pr + 0.3 * tr) * trust_mult * 10.0;
-
-                // 5. Navigational Official Domain Match Bonus (Google Brand Resolution)
+                // 3. Navigational Official Domain Match Bonus (Google Brand Resolution)
                 // When a user searches for "youtube", "youtube.com" or "www.youtube.com" is the official site!
                 let domain_lower = doc.url.domain.to_lowercase();
                 let domain_clean = domain_lower.trim_start_matches("www.");
@@ -489,27 +577,49 @@ impl InvertedIndex {
                     || domain_clean == format!("{}.com", query_clean)
                     || domain_clean == format!("{}.org", query_clean)
                     || domain_clean == format!("{}.net", query_clean)
-                    || domain_clean == format!("{}.tv", query_clean);
+                    || domain_clean == format!("{}.tv", query_clean)
+                    || domain_clean == format!("{}.io", query_clean)
+                    || domain_clean == format!("{}.co", query_clean);
 
                 let is_root_path = doc.url.path.is_empty() || doc.url.path == "/" || doc.url.depth == 0;
 
                 let navigational_bonus = if is_exact_domain_match {
-                    if is_root_path { 40.0 } else { 20.0 }
+                    if is_root_path { 50.0 } else { 25.0 }
                 } else if domain_lower.contains(&query_clean) && query_clean.len() >= 4 {
-                    if is_root_path { 18.0 } else { 8.0 }
+                    if is_root_path { 20.0 } else { 8.0 }
                 } else {
                     0.0
                 };
 
-                // Final Combined Rank Score
-                let final_score = 0.45 * bm25
-                    + 0.18 * authority_score
-                    + 0.12 * (exact_title_match + title_term_bonus)
-                    + 0.10 * phrase_bonus
-                    + 0.08 * anchor_bonus
-                    + 0.04 * (depth_score * 2.0)
-                    + 0.03 * coverage_bonus
-                    + navigational_bonus;
+                // 4. Exact Title Match Bonus
+                let title_exact_bonus = if title_lower == query_clean
+                    || title_lower.starts_with(&format!("{} -", query_clean))
+                    || title_lower.starts_with(&format!("{}:", query_clean)) {
+                    18.0
+                } else if title_lower.contains(&query_clean) {
+                    8.0
+                } else {
+                    0.0
+                };
+
+                // 5. Inbound Anchor Text Match Bonus (Google 1998 signature)
+                let matched_in_anchor = query_terms.iter().any(|t| doc.anchor_tokens.contains(t));
+                let anchor_bonus = if matched_in_anchor { 6.0 } else { 0.0 };
+
+                // 6. Authority Score (PageRank + TrustRank with log-scaling)
+                let authority_score = (1.0 + 80.0 * pr).ln() * trust_mult * 4.0;
+
+                // 7. URL Cleanliness & Depth Damping
+                let depth_penalty = 1.0 / (1.0 + (doc.url.depth as f64) * 0.5);
+
+                // Final Combined Google/Brave Rank Score
+                let final_score = bm25_score
+                    + proximity_bonus
+                    + navigational_bonus
+                    + title_exact_bonus
+                    + authority_score
+                    + anchor_bonus
+                    + (depth_penalty * 2.0);
 
                 let snippet = if !doc.description.is_empty() {
                     doc.description.clone()
@@ -524,7 +634,7 @@ impl InvertedIndex {
                     title: doc.title.clone(),
                     snippet,
                     score: final_score,
-                    bm25_score: bm25,
+                    bm25_score,
                     pagerank_score: pr,
                     trustrank_score: tr,
                     doc_length: doc.doc_length,
@@ -538,21 +648,39 @@ impl InvertedIndex {
         // Sort descending by final score
         scored_docs.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
 
+        // 8. Clustered Domain Diversity Filter (Google / Brave Search Cluster)
+        // Ensure no single domain dominates the top results (Max 2 hits per domain on Page 1)
+        let mut diversified_docs: Vec<SearchHit> = Vec::new();
+        let mut deferred_docs: Vec<SearchHit> = Vec::new();
+        let mut domain_counts: HashMap<String, usize> = HashMap::new();
+
+        for hit in scored_docs {
+            let d = hit.domain.clone();
+            let count = domain_counts.entry(d).or_insert(0);
+            if *count < 2 {
+                *count += 1;
+                diversified_docs.push(hit);
+            } else {
+                deferred_docs.push(hit);
+            }
+        }
+        diversified_docs.extend(deferred_docs);
+
         // Generate "Did you mean?" suggestion if total hits are low or query had typos
-        let did_you_mean = if scored_docs.len() < 3 {
+        let did_you_mean = if diversified_docs.len() < 3 {
             self.suggest_did_you_mean(&raw_query_terms)
         } else {
             None
         };
 
-        let total_hits = scored_docs.len();
+        let total_hits = diversified_docs.len();
         let total_pages = (total_hits + page_size - 1) / page_size;
 
         let start_idx = (page.saturating_sub(1)) * page_size;
         let end_idx = (start_idx + page_size).min(total_hits);
 
         let results = if start_idx < total_hits {
-            scored_docs[start_idx..end_idx].to_vec()
+            diversified_docs[start_idx..end_idx].to_vec()
         } else {
             Vec::new()
         };
