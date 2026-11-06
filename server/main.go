@@ -110,6 +110,10 @@ func (gw *APIGateway) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if instantAns == nil && res != nil && len(res.Results) > 0 {
+		instantAns = ExtractSnippetAIOverview(q, res.Results)
+	}
+
 	if instantAns != nil {
 		res.InstantAnswer = instantAns
 	}

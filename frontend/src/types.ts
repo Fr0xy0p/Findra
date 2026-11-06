@@ -21,6 +21,8 @@ export interface InstantAnswer {
   subtitle?: string;
   description?: string;
   badge?: string;
+  source_url?: string;
+  source_title?: string;
 }
 
 export interface SearchResponse {
