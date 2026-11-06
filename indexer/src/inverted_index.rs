@@ -480,6 +480,27 @@ impl InvertedIndex {
                 // 4. TrustRank-damped Authority Score (Anti-Spam)
                 let authority_score = (0.7 * pr + 0.3 * tr) * trust_mult * 10.0;
 
+                // 5. Navigational Official Domain Match Bonus (Google Brand Resolution)
+                // When a user searches for "youtube", "youtube.com" or "www.youtube.com" is the official site!
+                let domain_lower = doc.url.domain.to_lowercase();
+                let domain_clean = domain_lower.trim_start_matches("www.");
+                let is_exact_domain_match = domain_clean == query_clean
+                    || domain_clean.starts_with(&format!("{}.", query_clean))
+                    || domain_clean == format!("{}.com", query_clean)
+                    || domain_clean == format!("{}.org", query_clean)
+                    || domain_clean == format!("{}.net", query_clean)
+                    || domain_clean == format!("{}.tv", query_clean);
+
+                let is_root_path = doc.url.path.is_empty() || doc.url.path == "/" || doc.url.depth == 0;
+
+                let navigational_bonus = if is_exact_domain_match {
+                    if is_root_path { 40.0 } else { 20.0 }
+                } else if domain_lower.contains(&query_clean) && query_clean.len() >= 4 {
+                    if is_root_path { 18.0 } else { 8.0 }
+                } else {
+                    0.0
+                };
+
                 // Final Combined Rank Score
                 let final_score = 0.45 * bm25
                     + 0.18 * authority_score
@@ -487,7 +508,8 @@ impl InvertedIndex {
                     + 0.10 * phrase_bonus
                     + 0.08 * anchor_bonus
                     + 0.04 * (depth_score * 2.0)
-                    + 0.03 * coverage_bonus;
+                    + 0.03 * coverage_bonus
+                    + navigational_bonus;
 
                 let snippet = if !doc.description.is_empty() {
                     doc.description.clone()

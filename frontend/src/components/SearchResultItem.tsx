@@ -54,6 +54,12 @@ export const SearchResultItem: React.FC<Props> = ({ result, query }) => {
 
   const formattedPr = (result.pagerank_score * 100).toFixed(1);
 
+  const cleanQuery = query.toLowerCase().trim();
+  const isOfficialSite = Boolean(
+    (cleanQuery.length >= 3 && domain.toLowerCase().includes(cleanQuery)) ||
+    result.title.toLowerCase().includes('official site')
+  );
+
   return (
     <article className="group mb-7 max-w-2xl text-left">
       {/* URL Breadcrumb & Favicon */}
@@ -63,6 +69,12 @@ export const SearchResultItem: React.FC<Props> = ({ result, query }) => {
         </div>
         <span className="font-medium text-slate-700 dark:text-slate-300">{domain}</span>
         {pathBreadcrumb && <span className="truncate">{pathBreadcrumb}</span>}
+        {isOfficialSite && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+            <CheckCheck className="w-3 h-3 mr-1 text-blue-600 dark:text-blue-400" />
+            Official Site
+          </span>
+        )}
       </div>
 
       {/* Clickable Title */}

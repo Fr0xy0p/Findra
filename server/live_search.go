@@ -48,56 +48,211 @@ func NewLiveSearchService() *LiveSearchService {
 	}
 }
 
-// DiscoverLiveWeb searches DuckDuckGo Lite and Wikipedia in parallel
+// resolveNavigationalBrand checks if the query refers to a well-known brand/site
+// and returns its official canonical root website as the #1 target.
+func resolveNavigationalBrand(query string) *SearchResultItem {
+	q := strings.ToLower(strings.TrimSpace(query))
+	q = strings.TrimPrefix(q, "https://")
+	q = strings.TrimPrefix(q, "http://")
+	q = strings.TrimPrefix(q, "www.")
+	q = strings.TrimSuffix(q, "/")
+	q = strings.TrimSuffix(q, ".com")
+	q = strings.TrimSuffix(q, ".org")
+	q = strings.TrimSuffix(q, ".net")
+	q = strings.TrimSuffix(q, ".tv")
+
+	brands := map[string]struct {
+		url     string
+		domain  string
+		title   string
+		snippet string
+	}{
+		"youtube": {
+			url:     "https://www.youtube.com/",
+			domain:  "www.youtube.com",
+			title:   "YouTube",
+			snippet: "Enjoy the videos and music you love, upload original content, and share it all with friends, family, and the world on YouTube.",
+		},
+		"github": {
+			url:     "https://github.com/",
+			domain:  "github.com",
+			title:   "GitHub: Let’s build from here",
+			snippet: "GitHub is where over 100 million developers shape the future of software, together. Contribute to open source, build apps, and manage code.",
+		},
+		"google": {
+			url:     "https://www.google.com/",
+			domain:  "www.google.com",
+			title:   "Google",
+			snippet: "Search the world's information, including webpages, images, videos and more.",
+		},
+		"reddit": {
+			url:     "https://www.reddit.com/",
+			domain:  "www.reddit.com",
+			title:   "Reddit - Dive into anything",
+			snippet: "Reddit is a network of communities where people can dive into their interests, hobbies and passions.",
+		},
+		"netflix": {
+			url:     "https://www.netflix.com/",
+			domain:  "www.netflix.com",
+			title:   "Netflix - Watch TV Shows Online, Watch Movies Online",
+			snippet: "Watch Netflix movies & TV shows online or stream right to your smart TV, game console, PC, Mac, mobile, tablet and more.",
+		},
+		"spotify": {
+			url:     "https://www.spotify.com/",
+			domain:  "www.spotify.com",
+			title:   "Spotify - Web Player: Music for everyone",
+			snippet: "Spotify is a digital music service that gives you access to millions of songs, podcasts and videos from artists all over the world.",
+		},
+		"twitter": {
+			url:     "https://x.com/",
+			domain:  "x.com",
+			title:   "X (formerly Twitter)",
+			snippet: "From breaking news and entertainment to sports and politics, get the full story with all the live commentary.",
+		},
+		"x": {
+			url:     "https://x.com/",
+			domain:  "x.com",
+			title:   "X (formerly Twitter)",
+			snippet: "From breaking news and entertainment to sports and politics, get the full story with all the live commentary.",
+		},
+		"amazon": {
+			url:     "https://www.amazon.com/",
+			domain:  "www.amazon.com",
+			title:   "Amazon.com. Spend less. Smile more.",
+			snippet: "Free shipping on millions of items. Get the best of Shopping and Entertainment with Prime.",
+		},
+		"linkedin": {
+			url:     "https://www.linkedin.com/",
+			domain:  "www.linkedin.com",
+			title:   "LinkedIn: Log In or Sign Up",
+			snippet: "1 billion members | Manage your professional identity. Build and engage with your professional network.",
+		},
+		"instagram": {
+			url:     "https://www.instagram.com/",
+			domain:  "www.instagram.com",
+			title:   "Instagram",
+			snippet: "Create an account or log in to Instagram - Share what you're into with the people who get you.",
+		},
+		"facebook": {
+			url:     "https://www.facebook.com/",
+			domain:  "www.facebook.com",
+			title:   "Facebook - Log In or Sign Up",
+			snippet: "Connect with friends and the world around you on Facebook.",
+		},
+		"chatgpt": {
+			url:     "https://chatgpt.com/",
+			domain:  "chatgpt.com",
+			title:   "ChatGPT - OpenAI",
+			snippet: "ChatGPT is a free-to-use AI system. Use it for engaging conversations, gain insights, automate tasks, and witness the future of AI.",
+		},
+		"wikipedia": {
+			url:     "https://www.wikipedia.org/",
+			domain:  "www.wikipedia.org",
+			title:   "Wikipedia, the free encyclopedia",
+			snippet: "Wikipedia is a free online encyclopedia, created and edited by volunteers around the world and hosted by the Wikimedia Foundation.",
+		},
+		"stackoverflow": {
+			url:     "https://stackoverflow.com/",
+			domain:  "stackoverflow.com",
+			title:   "Stack Overflow - Where Developers Learn, Share, & Build Careers",
+			snippet: "Stack Overflow is the largest, most trusted online community for developers to learn, share their programming knowledge, and build their careers.",
+		},
+		"twitch": {
+			url:     "https://www.twitch.tv/",
+			domain:  "www.twitch.tv",
+			title:   "Twitch",
+			snippet: "Twitch is an interactive livestreaming service for content spanning gaming, entertainment, sports, music, and more.",
+		},
+		"discord": {
+			url:     "https://discord.com/",
+			domain:  "discord.com",
+			title:   "Discord - Group Chat That’s All Fun & Games",
+			snippet: "Discord is great for playing games and chilling with friends, or even building a worldwide community.",
+		},
+	}
+
+	if b, ok := brands[q]; ok {
+		return &SearchResultItem{
+			DocID:           800000,
+			URL:             b.url,
+			Domain:          b.domain,
+			Title:           b.title,
+			Snippet:         b.snippet,
+			Score:           28.0,
+			BM25Score:       18.0,
+			PageRankScore:   0.98,
+			TrustRankScore:  0.99,
+			Headings:        []string{b.title},
+			IsPhraseMatch:   true,
+			MatchedInAnchor: true,
+		}
+	}
+	return nil
+}
+
+// DiscoverLiveWeb searches DuckDuckGo Lite and Wikipedia, prioritizing real websites over encyclopedia entries
 func (s *LiveSearchService) DiscoverLiveWeb(query string, limit int) ([]SearchResultItem, error) {
 	if limit <= 0 {
 		limit = 10
 	}
 
 	var (
-		wg      sync.WaitGroup
-		mu      sync.Mutex
-		results []SearchResultItem
-		seen    = make(map[string]bool)
+		wg        sync.WaitGroup
+		ddgItems  []SearchResultItem
+		wikiItems []SearchResultItem
 	)
 
 	wg.Add(2)
 
-	// 1. Fetch from DuckDuckGo Lite (General Worldwide Web)
+	// 1. Fetch from DuckDuckGo Lite (Actual official web pages)
 	go func() {
 		defer wg.Done()
-		ddgItems, err := s.fetchDuckDuckGoLite(query)
-		if err == nil && len(ddgItems) > 0 {
-			mu.Lock()
-			for _, item := range ddgItems {
-				normURL := normalizeURL(item.URL)
-				if !seen[normURL] && len(results) < limit*2 {
-					seen[normURL] = true
-					results = append(results, item)
-				}
-			}
-			mu.Unlock()
+		items, err := s.fetchDuckDuckGoLite(query)
+		if err == nil {
+			ddgItems = items
 		}
 	}()
 
-	// 2. Fetch from Wikipedia Search API (Authoritative Global Knowledge)
+	// 2. Fetch from Wikipedia Search API (Authoritative encyclopedia knowledge)
 	go func() {
 		defer wg.Done()
-		wikiItems, err := s.fetchWikipediaSearch(query, limit)
-		if err == nil && len(wikiItems) > 0 {
-			mu.Lock()
-			for _, item := range wikiItems {
-				normURL := normalizeURL(item.URL)
-				if !seen[normURL] && len(results) < limit*2 {
-					seen[normURL] = true
-					results = append(results, item)
-				}
-			}
-			mu.Unlock()
+		items, err := s.fetchWikipediaSearch(query, limit)
+		if err == nil {
+			wikiItems = items
 		}
 	}()
 
 	wg.Wait()
+
+	var results []SearchResultItem
+	seen := make(map[string]bool)
+
+	// A. Check if query is a Navigational Brand query (e.g. "youtube", "github")
+	brandItem := resolveNavigationalBrand(query)
+	if brandItem != nil {
+		results = append(results, *brandItem)
+		seen[normalizeURL(brandItem.URL)] = true
+	}
+
+	// B. Prioritize DuckDuckGo Lite results (Real live domains and websites)
+	for _, it := range ddgItems {
+		cleanURL := cleanCanonicalURL(it.URL)
+		it.URL = cleanURL
+		norm := normalizeURL(cleanURL)
+		if !seen[norm] {
+			seen[norm] = true
+			results = append(results, it)
+		}
+	}
+
+	// C. Append Wikipedia entries as complementary reference links
+	for _, it := range wikiItems {
+		norm := normalizeURL(it.URL)
+		if !seen[norm] {
+			seen[norm] = true
+			results = append(results, it)
+		}
+	}
 
 	if len(results) == 0 {
 		return nil, fmt.Errorf("no live web results found for query: %s", query)
@@ -109,21 +264,42 @@ func (s *LiveSearchService) DiscoverLiveWeb(query string, limit int) ([]SearchRe
 	}
 
 	for i := range results {
-		rank := float64(i)
-		results[i].DocID = uint32(800000 + i)
-		results[i].BM25Score = 8.5 - (rank * 0.4)
-		if results[i].BM25Score < 1.0 {
-			results[i].BM25Score = 1.0
+		if results[i].Score == 0 {
+			rank := float64(i)
+			results[i].DocID = uint32(800000 + i)
+			results[i].BM25Score = 8.5 - (rank * 0.4)
+			if results[i].BM25Score < 1.0 {
+				results[i].BM25Score = 1.0
+			}
+			results[i].PageRankScore = 0.90 - (rank * 0.04)
+			if results[i].PageRankScore < 0.2 {
+				results[i].PageRankScore = 0.2
+			}
+			results[i].TrustRankScore = 0.95 - (rank * 0.03)
+			results[i].Score = results[i].BM25Score + (results[i].PageRankScore * 2.5)
 		}
-		results[i].PageRankScore = 0.90 - (rank * 0.04)
-		if results[i].PageRankScore < 0.2 {
-			results[i].PageRankScore = 0.2
-		}
-		results[i].TrustRankScore = 0.95 - (rank * 0.03)
-		results[i].Score = results[i].BM25Score + (results[i].PageRankScore * 2.5)
 	}
 
 	return results, nil
+}
+
+func cleanCanonicalURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	q := u.Query()
+	q.Del("gl")
+	q.Del("ref")
+	q.Del("utm_source")
+	q.Del("utm_medium")
+	q.Del("utm_campaign")
+	if len(q) == 0 {
+		u.RawQuery = ""
+	} else {
+		u.RawQuery = q.Encode()
+	}
+	return u.String()
 }
 
 func (s *LiveSearchService) fetchDuckDuckGoLite(query string) ([]SearchResultItem, error) {
