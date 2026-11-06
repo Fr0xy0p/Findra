@@ -27,7 +27,7 @@ export const Pagination: React.FC<Props> = ({ currentPage, totalPages, onPageCha
     <nav className="flex flex-col items-center my-10 max-w-2xl">
       {/* Playful Google/Brave style Logo lettering */}
       <div className="flex items-center text-3xl font-bold tracking-tight mb-4 select-none">
-        <span className="text-[#4285F4]">N</span>
+        <span className="text-[#4285F4]">F</span>
         {pages.map((p) => (
           <span
             key={p}
@@ -42,12 +42,13 @@ export const Pagination: React.FC<Props> = ({ currentPage, totalPages, onPageCha
                 : 'text-[#4285F4]'
             }`}
           >
-            e
+            i
           </span>
         ))}
-        <span className="text-[#34A853]">x</span>
-        <span className="text-[#EA4335]">u</span>
-        <span className="text-[#4285F4]">s</span>
+        <span className="text-[#FBBC05]">n</span>
+        <span className="text-[#4285F4]">d</span>
+        <span className="text-[#34A853]">r</span>
+        <span className="text-[#EA4335]">a</span>
       </div>
 
       {/* Numerical buttons */}

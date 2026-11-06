@@ -22,7 +22,7 @@ func main() {
 	maxDepth := flag.Int("max-depth", 3, "Maximum BFS crawl depth")
 	allowedDomainsFlag := flag.String("allowed-domains", "", "Comma-separated domain whitelist (leave empty for open crawl)")
 	outputPath := flag.String("output", "data/raw_crawled/crawl_output.jsonl", "Path to save crawled JSONL output")
-	userAgent := flag.String("user-agent", "NexusSearchCrawler/1.0 (+https://github.com/google/search-engine; polite)", "Crawler User-Agent")
+	userAgent := flag.String("user-agent", "FindraSearchCrawler/1.0 (+https://github.com/google/search-engine; polite)", "Crawler User-Agent")
 
 	flag.Parse()
 
@@ -66,7 +66,7 @@ func main() {
 	defer outFile.Close()
 
 	fmt.Println("==================================================")
-	fmt.Println("🚀 NEXUS DISTRIBUTED POLITE WEB CRAWLER (Go)")
+	fmt.Println("🚀 FINDRA DISTRIBUTED POLITE WEB CRAWLER (Go)")
 	fmt.Printf("   Workers: %d | Politeness Delay: %dms | Max Pages: %d\n", *concurrency, *delayMs, *maxPages)
 	fmt.Printf("   Seeds: %v\n", seeds)
 	fmt.Printf("   Output: %s\n", *outputPath)

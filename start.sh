@@ -7,7 +7,7 @@ cd "$DIR"
 mkdir -p logs
 
 echo "=================================================="
-echo "🚀 Starting Nexus Search Engine on localhost..."
+echo "🚀 Starting Findra Search Engine on localhost..."
 echo "=================================================="
 
 # Stop any currently running instances

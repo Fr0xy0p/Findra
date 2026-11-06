@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: nexus-search-engine
+    container_name: findra-search-engine
     ports:
       - "8080:8080" # Go API Gateway & TypeScript Search UI
       - "8081:8081" # Rust Inverted Index Server

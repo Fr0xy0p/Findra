@@ -1,4 +1,4 @@
-# Multi-stage production container for Nexus Search Engine
+# Multi-stage production container for Findra Search Engine
 # Combines Go Server/Crawler, Rust Indexer, C++ PageRank, Python NLP Extractor, and TypeScript UI
 
 # ----------------- STAGE 1: Frontend Build -----------------

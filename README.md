@@ -1,4 +1,4 @@
-# Nexus Search Engine (Google / Brave Architecture)
+# Findra Search Engine (Google / Brave Architecture)
 
 A production-grade, polite web search engine built from first principles following the exact polyglot industry-standard architecture:
 
@@ -197,7 +197,7 @@ gcloud config set project YOUR_GCP_PROJECT_ID
 ### Step 2: Build & Deploy Container to Cloud Run
 Deploy directly from source using the multi-stage `Dockerfile`:
 ```bash
-gcloud run deploy nexus-search \
+gcloud run deploy findra-search \
   --source . \
   --platform managed \
   --region us-central1 \
@@ -210,8 +210,8 @@ gcloud run deploy nexus-search \
 ### Step 3: Access Live URL
 Google Cloud Run will print the production URL:
 ```
-Service [nexus-search] revision has been deployed and is serving 100 percent of traffic.
-Service URL: https://nexus-search-xxxxx-uc.a.run.app
+Service [findra-search] revision has been deployed and is serving 100 percent of traffic.
+Service URL: https://findra-search-xxxxx-uc.a.run.app
 ```
 Both the Go Serving Gateway, Rust Inverted Index, and TypeScript frontend are served live in high-performance production mode!
 

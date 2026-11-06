@@ -128,11 +128,12 @@ export const App: React.FC = () => {
                 <Sparkles className="w-8 h-8" />
               </div>
               <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight">
-                <span className="text-[#4285F4]">N</span>
-                <span className="text-[#EA4335]">e</span>
-                <span className="text-[#FBBC05]">x</span>
-                <span className="text-[#4285F4]">u</span>
-                <span className="text-[#34A853]">s</span>
+                <span className="text-[#4285F4]">F</span>
+                <span className="text-[#EA4335]">i</span>
+                <span className="text-[#FBBC05]">n</span>
+                <span className="text-[#4285F4]">d</span>
+                <span className="text-[#34A853]">r</span>
+                <span className="text-[#EA4335]">a</span>
                 <span className="text-slate-800 dark:text-slate-200 ml-2">Search</span>
               </h1>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-mono">
@@ -200,11 +201,12 @@ export const App: React.FC = () => {
                   }}
                   className="cursor-pointer select-none text-2xl font-bold tracking-tight"
                 >
-                  <span className="text-[#4285F4]">N</span>
-                  <span className="text-[#EA4335]">e</span>
-                  <span className="text-[#FBBC05]">x</span>
-                  <span className="text-[#4285F4]">u</span>
-                  <span className="text-[#34A853]">s</span>
+                  <span className="text-[#4285F4]">F</span>
+                  <span className="text-[#EA4335]">i</span>
+                  <span className="text-[#FBBC05]">n</span>
+                  <span className="text-[#4285F4]">d</span>
+                  <span className="text-[#34A853]">r</span>
+                  <span className="text-[#EA4335]">a</span>
                 </div>
 
                 {/* Compact SearchBar */}

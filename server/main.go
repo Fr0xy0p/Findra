@@ -225,7 +225,7 @@ func main() {
 
 	addr := fmt.Sprintf(":%d", *port)
 	fmt.Println("==================================================")
-	fmt.Printf("🚀 NEXUS QUERY API GATEWAY (Go)\n")
+	fmt.Printf("🚀 FINDRA QUERY API GATEWAY (Go)\n")
 	fmt.Printf("   Listening on http://localhost:%d\n", *port)
 	fmt.Printf("   Connected to Rust Indexer at: %s\n", *rustURL)
 	fmt.Printf("   Serving UI from: %s\n", *staticDir)

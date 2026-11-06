@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("==================================================");
-    println!("🦀 NEXUS HIGH-PERFORMANCE INVERTED INDEX ENGINE (Rust)");
+    println!("🦀 FINDRA HIGH-PERFORMANCE INVERTED INDEX ENGINE (Rust)");
     println!("   Docs: {}", docs_path);
     println!("   PageRank: {}", pagerank_path);
     println!("   Port: {}", port);
