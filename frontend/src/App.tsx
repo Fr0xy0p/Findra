@@ -275,11 +275,24 @@ export const App: React.FC = () => {
 
           {/* Results Main Section */}
           <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-5">
-            {/* Performance Stats Banner */}
+            {/* Performance Stats Banner & Did You Mean */}
             {searchResponse && (
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-6 pl-2 sm:pl-24">
-                About {searchResponse.total_hits.toLocaleString()} results (
-                {(searchResponse.took_ms / 1000).toFixed(4)} seconds)
+              <div className="text-xs text-slate-500 dark:text-slate-400 mb-4 pl-2 sm:pl-24">
+                <div>
+                  About {searchResponse.total_hits.toLocaleString()} results (
+                  {(searchResponse.took_ms / 1000).toFixed(4)} seconds)
+                </div>
+                {searchResponse.did_you_mean && (
+                  <div className="mt-2 text-sm text-slate-800 dark:text-slate-200">
+                    <span className="text-red-500 font-medium">Did you mean: </span>
+                    <button
+                      onClick={() => executeSearch(searchResponse.did_you_mean!, 1)}
+                      className="text-blue-600 dark:text-blue-400 font-semibold italic hover:underline cursor-pointer"
+                    >
+                      {searchResponse.did_you_mean}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

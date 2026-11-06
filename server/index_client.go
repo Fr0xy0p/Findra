@@ -20,10 +20,12 @@ type SearchResultItem struct {
 	PageRankScore float64  `json:"pagerank_score"`
 	DocLength     uint32   `json:"doc_length"`
 	Headings      []string `json:"headings"`
+	IsPhraseMatch bool     `json:"is_phrase_match,omitempty"`
 }
 
 type SearchResponse struct {
 	Query      string             `json:"query"`
+	DidYouMean string             `json:"did_you_mean,omitempty"`
 	TotalHits  int                `json:"total_hits"`
 	TookMs     float64            `json:"took_ms"`
 	Page       int                `json:"page"`

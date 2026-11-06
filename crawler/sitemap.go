@@ -97,3 +97,4 @@ func DiscoverDomainSitemap(domainURL string, userAgent string, maxURLs int) ([]s
 	sitemapURL := fmt.Sprintf("%s://%s/sitemap.xml", parsed.Scheme, parsed.Host)
 	return FetchSitemapURLs(sitemapURL, userAgent, maxURLs)
 }
+

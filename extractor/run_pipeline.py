@@ -74,6 +74,13 @@ def run_pipeline(input_path: str, output_dir: str):
             tokens = [t for t, _ in body_tokens_with_pos]
             tf = compute_term_frequencies(tokens)
 
+            # Build positional index map for exact phrase queries
+            term_positions: Dict[str, List[int]] = {}
+            for term, pos in body_tokens_with_pos:
+                if term not in term_positions:
+                    term_positions[term] = []
+                term_positions[term].append(pos)
+
             # Process title tokens (for title matching boost)
             title_tokens = process_text(extracted["title"], stem=True, remove_stops=True)
 
@@ -94,6 +101,7 @@ def run_pipeline(input_path: str, output_dir: str):
                 "title_tokens": title_tokens,
                 "heading_tokens": heading_tokens,
                 "term_frequencies": tf,
+                "term_positions": term_positions,
                 "crawled_at": raw.get("crawled_at", "")
             }
 

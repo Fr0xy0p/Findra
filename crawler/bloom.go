@@ -81,3 +81,4 @@ func (bf *BloomFilter) Contains(item string) bool {
 	}
 	return true
 }
+

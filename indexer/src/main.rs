@@ -1,6 +1,7 @@
 mod compressor;
 mod inverted_index;
 mod snippet;
+mod stemmer;
 mod api;
 
 use std::sync::Arc;
