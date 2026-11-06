@@ -287,3 +287,4 @@ pub fn stem_word(word: &str) -> String {
     let mut stemmer = Stemmer::new();
     stemmer.stem(word)
 }
+
