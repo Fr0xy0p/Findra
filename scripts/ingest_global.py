@@ -64,29 +64,82 @@ VITAL_TOPICS = {
         "Abraham Lincoln", "William Shakespeare", "Industrial Revolution", "Renaissance",
         "Ancient Egypt", "Roman Empire", "World War I", "World War II", "Apollo program"
     ],
-    "culture_and_sports": [
-        "Olympic Games", "FIFA World Cup", "Premier League", "National Basketball Association",
-        "Cricket", "Cinema", "Music", "Animation", "Video game", "Internet meme"
+    "sports": [
+        "Association football", "FIFA World Cup", "UEFA Champions League", "Premier League",
+        "La Liga", "Cricket", "ICC Men's Cricket World Cup", "Indian Premier League",
+        "Basketball", "National Basketball Association", "American football", "Super Bowl",
+        "National Football League", "Tennis", "Wimbledon Championships", "Formula One",
+        "Formula One World Championship", "Tour de France", "Olympic Games", "Ultimate Fighting Championship",
+        "Golf", "The Masters (golf)", "Rugby football", "Athletics (sport)",
+        "Lionel Messi", "Cristiano Ronaldo", "Michael Jordan", "LeBron James",
+        "Virat Kohli", "Sachin Tendulkar", "Roger Federer", "Rafael Nadal",
+        "Novak Djokovic", "Usain Bolt", "Muhammad Ali", "Lewis Hamilton",
+        "Serena Williams", "Tiger Woods", "Tom Brady", "Pelé", "Diego Maradona",
+        "Max Verstappen", "Stephen Curry", "Rohit Sharma", "MS Dhoni"
+    ],
+    "esports": [
+        "Esports", "League of Legends", "Counter-Strike 2", "Dota 2",
+        "Valorant", "Fortnite", "Overwatch 2", "Apex Legends",
+        "Rocket League", "Rainbow Six Siege", "StarCraft II: Wings of Liberty",
+        "Call of Duty", "Super Smash Bros.", "Street Fighter 6",
+        "League of Legends World Championship", "The International (Dota 2)",
+        "Counter-Strike Major Championships", "Valorant Champions Tour",
+        "Esports World Cup", "Evolution Championship Series", "Intel Extreme Masters",
+        "T1 (esports)", "FaZe Clan", "Team Liquid", "Cloud9", "Fnatic",
+        "G2 Esports", "Natus Vincere", "Sentinels (esports)", "Gen.G",
+        "Faker (gamer)", "Oleksandr Kostyliev", "Shroud (gamer)", "TenZ",
+        "Bugha", "Ceb (gamer)", "Bjergsen", "Daigo Umehara", "Ninja (gamer)"
+    ],
+    "culture": [
+        "Cinema", "Music", "Animation", "Video game", "Internet meme",
+        "Theater", "Painting", "Sculpture", "Literature", "Philosophy"
     ]
 }
 
 def fetch_wiki_summary(title: str):
     slug = urllib.parse.quote(title.replace(" ", "_"))
     url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{slug}"
-    req = urllib.request.Request(url, headers={"User-Agent": "FindraKnowledgeSeeder/1.0 (info@findra.search)"})
+    headers = {"User-Agent": "FindraKnowledgeSeeder/1.0 (info@findra.search)"}
+
+    # Try REST summary API with retry on 429
+    for attempt in range(3):
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                if resp.status == 200:
+                    return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                time.sleep(1.2 * (attempt + 1))
+                continue
+            elif e.code == 404:
+                break
+        except Exception:
+            time.sleep(0.5)
+
+    # Fallback to OpenSearch API if direct slug was not found
     try:
-        with urllib.request.urlopen(req, timeout=6) as resp:
-            if resp.status == 200:
-                return json.loads(resp.read().decode("utf-8"))
-    except Exception as e:
-        # Fallback to standard search query if summary slug differs
+        search_url = f"https://en.wikipedia.org/w/api.php?action=opensearch&search={urllib.parse.quote(title)}&limit=1&namespace=0&format=json"
+        req = urllib.request.Request(search_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data and len(data) > 1 and data[1]:
+                real_title = data[1][0]
+                real_slug = urllib.parse.quote(real_title.replace(" ", "_"))
+                summary_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{real_slug}"
+                req2 = urllib.request.Request(summary_url, headers=headers)
+                with urllib.request.urlopen(req2, timeout=8) as resp2:
+                    if resp2.status == 200:
+                        return json.loads(resp2.read().decode("utf-8"))
+    except Exception:
         pass
+
     return None
 
 def main():
     parser = argparse.ArgumentParser(description="Findra Global Knowledge Seeder")
-    parser.add_argument("--limit", type=int, default=40, help="Number of vital articles to ingest")
-    parser.add_argument("--category", type=str, default="all", choices=["all", "tech", "science", "geography", "history_and_people"])
+    parser.add_argument("--limit", type=int, default=300, help="Number of vital articles to ingest")
+    parser.add_argument("--category", type=str, default="all", choices=["all", "tech", "science", "geography", "history_and_people", "sports", "esports", "culture"])
     parser.add_argument("--custom", type=str, default="", help="Comma-separated custom topics")
     parser.add_argument("--docs-path", type=str, default="data/parsed/documents.jsonl")
     parser.add_argument("--crawl-path", type=str, default="data/raw_crawled/crawl_output.jsonl")

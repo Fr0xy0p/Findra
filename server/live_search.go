@@ -285,6 +285,78 @@ func resolveNavigationalBrand(query string) *SearchResultItem {
 			title:   "Tesla - Electric Cars, Solar & Clean Energy",
 			snippet: "Tesla is accelerating the world's transition to sustainable energy with electric cars, solar and integrated renewable energy solutions.",
 		},
+		"espncricinfo": {
+			url:     "https://www.espncricinfo.com/",
+			domain:  "www.espncricinfo.com",
+			title:   "ESPNcricinfo - Live Cricket Scores, News and Stats",
+			snippet: "Get live cricket scores, ball by ball commentary, match updates, cricket news, stats and fixtures for ICC, IPL and international cricket.",
+		},
+		"cricinfo": {
+			url:     "https://www.espncricinfo.com/",
+			domain:  "www.espncricinfo.com",
+			title:   "ESPNcricinfo - Live Cricket Scores, News and Stats",
+			snippet: "Get live cricket scores, ball by ball commentary, match updates, cricket news, stats and fixtures for ICC, IPL and international cricket.",
+		},
+		"fifa": {
+			url:     "https://www.fifa.com/",
+			domain:  "www.fifa.com",
+			title:   "FIFA - Home of International Football",
+			snippet: "Follow world football tournaments, FIFA World Cup, club competitions, live matches, rankings, and football news.",
+		},
+		"nba": {
+			url:     "https://www.nba.com/",
+			domain:  "www.nba.com",
+			title:   "NBA.com: The Official Site of the National Basketball Association",
+			snippet: "The official site of the National Basketball Association. Your home for scores, schedules, stats, news, and highlights.",
+		},
+		"nfl": {
+			url:     "https://www.nfl.com/",
+			domain:  "www.nfl.com",
+			title:   "NFL.com | Official Site of the National Football League",
+			snippet: "The official source for NFL news, video highlights, fantasy football, game-day coverage, schedules, and stats.",
+		},
+		"formula 1": {
+			url:     "https://www.formula1.com/",
+			domain:  "www.formula1.com",
+			title:   "Formula 1 - The Official Home of F1 Racing",
+			snippet: "Enter the world of Formula 1. Your go-to source for the latest F1 news, video highlights, GP results, live timing and driver standings.",
+		},
+		"f1": {
+			url:     "https://www.formula1.com/",
+			domain:  "www.formula1.com",
+			title:   "Formula 1 - The Official Home of F1 Racing",
+			snippet: "Enter the world of Formula 1. Your go-to source for the latest F1 news, video highlights, GP results, live timing and driver standings.",
+		},
+		"ufc": {
+			url:     "https://www.ufc.com/",
+			domain:  "www.ufc.com",
+			title:   "UFC - Ultimate Fighting Championship",
+			snippet: "The official home of Ultimate Fighting Championship. View fight schedules, athlete rankings, results, news, and pay-per-view events.",
+		},
+		"hltv": {
+			url:     "https://www.hltv.org/",
+			domain:  "www.hltv.org",
+			title:   "HLTV.org - The Home of Competitive Counter-Strike",
+			snippet: "HLTV is the leading Counter-Strike coverage site in the world. Real-time match scores, team rankings, player stats, and esports news.",
+		},
+		"liquipedia": {
+			url:     "https://liquipedia.net/",
+			domain:  "liquipedia.net",
+			title:   "Liquipedia - The Esports Encyclopedia",
+			snippet: "Liquipedia is the definitive community encyclopedia for esports: covering Dota 2, Counter-Strike, League of Legends, Valorant, and more.",
+		},
+		"vlr": {
+			url:     "https://www.vlr.gg/",
+			domain:  "www.vlr.gg",
+			title:   "VLR.gg - Competitive Valorant Hub",
+			snippet: "The home of competitive Valorant esports: live match tickers, event coverage, VCT player stats, and forums.",
+		},
+		"chess": {
+			url:     "https://www.chess.com/",
+			domain:  "www.chess.com",
+			title:   "Chess.com - Play Chess Online - Free Games",
+			snippet: "Play chess online against the computer or friends. Learn strategies, solve puzzles, and watch grandmaster tournaments.",
+		},
 	}
 
 	if b, ok := brands[q]; ok {
