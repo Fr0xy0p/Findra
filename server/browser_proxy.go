@@ -25,6 +25,7 @@ var (
 	}
 
 	headRegex      = regexp.MustCompile(`(?i)<head[^>]*>`)
+	metaCSPRe      = regexp.MustCompile(`(?i)<meta\s+[^>]*http-equiv=["']?(content-security-policy|x-frame-options)["']?[^>]*>`)
 	htmlTagStripRe = regexp.MustCompile(`<[^>]*>`)
 	scriptTagRe    = regexp.MustCompile(`(?si)<script[^>]*>.*?</script>`)
 	styleTagRe     = regexp.MustCompile(`(?si)<style[^>]*>.*?</style>`)
@@ -152,16 +153,13 @@ func (gw *APIGateway) handleBrowserProxy(w http.ResponseWriter, r *http.Request)
 func injectInAppBrowserBridge(htmlText, finalURL string) string {
 	escapedURL := html.EscapeString(finalURL)
 
+	// Strip inline meta CSP or frame-busting tags
+	htmlText = metaCSPRe.ReplaceAllString(htmlText, "<!-- meta-csp-stripped -->")
+
 	bridgeScript := fmt.Sprintf(`
 <base href="%s">
 <script>
 (function() {
-  // Prevent frame-busting scripts from escaping Findra's in-app browser
-  try {
-    window.top = window.self;
-    window.parent = window.self;
-  } catch(e) {}
-
   // Intercept in-page hyperlink navigation
   document.addEventListener('click', function(e) {
     var a = e.target.closest('a');
@@ -180,7 +178,7 @@ func injectInAppBrowserBridge(htmlText, finalURL string) string {
   }, true);
 
   // Notify parent of title and loaded status
-  window.addEventListener('DOMContentLoaded', function() {
+  function notifyLoaded() {
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({
         type: 'FINDRA_PAGE_LOADED',
@@ -188,7 +186,14 @@ func injectInAppBrowserBridge(htmlText, finalURL string) string {
         url: "%s"
       }, '*');
     }
-  });
+  }
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    notifyLoaded();
+  } else {
+    window.addEventListener('DOMContentLoaded', notifyLoaded);
+    window.addEventListener('load', notifyLoaded);
+  }
 })();
 </script>
 `, escapedURL, escapedURL, escapedURL)
