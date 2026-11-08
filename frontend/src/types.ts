@@ -25,6 +25,17 @@ export interface InstantAnswer {
   source_title?: string;
 }
 
+export interface KnowledgePanel {
+  title: string;
+  type?: string;
+  description?: string;
+  image_url?: string;
+  website?: string;
+  wikipedia_url?: string;
+  attributes?: Record<string, string>;
+  source?: string;
+}
+
 export interface SearchResponse {
   query: string;
   total_hits: number;
@@ -35,6 +46,7 @@ export interface SearchResponse {
   results: SearchResultItem[];
   did_you_mean?: string;
   instant_answer?: InstantAnswer;
+  knowledge_panel?: KnowledgePanel;
   is_live_discovered?: boolean;
   source_notice?: string;
 }

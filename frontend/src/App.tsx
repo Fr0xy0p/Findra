@@ -486,8 +486,10 @@ export const App: React.FC = () => {
                 ) : (
                   /* Right Knowledge Panel */
                   <KnowledgeCard
+                    panel={searchResponse.knowledge_panel}
                     topResult={searchResponse.results[0]}
                     query={query}
+                    onOpenInBrowser={openInBrowser}
                   />
                 )}
               </div>

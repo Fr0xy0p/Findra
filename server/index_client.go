@@ -25,10 +25,22 @@ type SearchResultItem struct {
 	MatchedInAnchor bool     `json:"matched_in_anchor,omitempty"`
 }
 
+type KnowledgePanel struct {
+	Title        string            `json:"title"`
+	Type         string            `json:"type,omitempty"`
+	Description  string            `json:"description,omitempty"`
+	ImageURL     string            `json:"image_url,omitempty"`
+	Website      string            `json:"website,omitempty"`
+	WikipediaURL string            `json:"wikipedia_url,omitempty"`
+	Attributes   map[string]string `json:"attributes,omitempty"`
+	Source       string            `json:"source,omitempty"`
+}
+
 type SearchResponse struct {
 	Query            string             `json:"query"`
 	DidYouMean       string             `json:"did_you_mean,omitempty"`
 	InstantAnswer    *InstantAnswer     `json:"instant_answer,omitempty"`
+	KnowledgePanel   *KnowledgePanel    `json:"knowledge_panel,omitempty"`
 	TotalHits        int                `json:"total_hits"`
 	TookMs           float64            `json:"took_ms"`
 	Page             int                `json:"page"`

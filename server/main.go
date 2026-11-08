@@ -118,6 +118,12 @@ func (gw *APIGateway) handleSearch(w http.ResponseWriter, r *http.Request) {
 		res.InstantAnswer = instantAns
 	}
 
+	// Resolve Google/Whoogle-grade rich Knowledge Panel
+	knowledgePanel := ResolveKnowledgePanel(q)
+	if knowledgePanel != nil && res != nil {
+		res.KnowledgePanel = knowledgePanel
+	}
+
 	resBytes, err := json.Marshal(res)
 	if err == nil {
 		gw.cache.Set(cacheKey, resBytes)

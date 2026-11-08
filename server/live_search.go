@@ -32,6 +32,7 @@ func CleanHTML(input string) string {
 
 type LiveSearchService struct {
 	client    *http.Client
+	whoogle   *WhoogleEngine
 	autoIdxMu sync.Mutex
 }
 
@@ -45,6 +46,7 @@ func NewLiveSearchService() *LiveSearchService {
 				IdleConnTimeout:     60 * time.Second,
 			},
 		},
+		whoogle: NewWhoogleEngine(),
 	}
 }
 
@@ -190,21 +192,32 @@ func resolveNavigationalBrand(query string) *SearchResultItem {
 	return nil
 }
 
-// DiscoverLiveWeb searches DuckDuckGo Lite and Wikipedia, prioritizing real websites over encyclopedia entries
+// DiscoverLiveWeb searches Whoogle (Google results), DuckDuckGo Lite, and Wikipedia,
+// prioritizing real websites, de-tracking links, and ranking authoritative sources.
 func (s *LiveSearchService) DiscoverLiveWeb(query string, limit int) ([]SearchResultItem, error) {
 	if limit <= 0 {
 		limit = 10
 	}
 
 	var (
-		wg        sync.WaitGroup
-		ddgItems  []SearchResultItem
-		wikiItems []SearchResultItem
+		wg           sync.WaitGroup
+		whoogleItems []SearchResultItem
+		ddgItems     []SearchResultItem
+		wikiItems    []SearchResultItem
 	)
 
-	wg.Add(2)
+	wg.Add(3)
 
-	// 1. Fetch from DuckDuckGo Lite (Actual official web pages)
+	// 1. Fetch from Whoogle (Google upstream results, ad-free & de-tracked)
+	go func() {
+		defer wg.Done()
+		items, err := s.whoogle.FetchWhoogleResults(query, limit)
+		if err == nil && len(items) > 0 {
+			whoogleItems = items
+		}
+	}()
+
+	// 2. Fetch from DuckDuckGo Lite (Live official web pages)
 	go func() {
 		defer wg.Done()
 		items, err := s.fetchDuckDuckGoLite(query)
@@ -213,7 +226,7 @@ func (s *LiveSearchService) DiscoverLiveWeb(query string, limit int) ([]SearchRe
 		}
 	}()
 
-	// 2. Fetch from Wikipedia Search API (Authoritative encyclopedia knowledge)
+	// 3. Fetch from Wikipedia Search API (Authoritative encyclopedia knowledge)
 	go func() {
 		defer wg.Done()
 		items, err := s.fetchWikipediaSearch(query, limit)
@@ -234,9 +247,9 @@ func (s *LiveSearchService) DiscoverLiveWeb(query string, limit int) ([]SearchRe
 		seen[normalizeURL(brandItem.URL)] = true
 	}
 
-	// B. Prioritize DuckDuckGo Lite results (Real live domains and websites)
-	for _, it := range ddgItems {
-		cleanURL := cleanCanonicalURL(it.URL)
+	// B. Prioritize Whoogle (Google) results
+	for _, it := range whoogleItems {
+		cleanURL := CleanAndDeTrackURL(it.URL)
 		it.URL = cleanURL
 		norm := normalizeURL(cleanURL)
 		if !seen[norm] {
@@ -245,9 +258,22 @@ func (s *LiveSearchService) DiscoverLiveWeb(query string, limit int) ([]SearchRe
 		}
 	}
 
-	// C. Append Wikipedia entries as complementary reference links
+	// C. Prioritize DuckDuckGo Lite results (Real live domains and websites)
+	for _, it := range ddgItems {
+		cleanURL := CleanAndDeTrackURL(it.URL)
+		it.URL = cleanURL
+		norm := normalizeURL(cleanURL)
+		if !seen[norm] {
+			seen[norm] = true
+			results = append(results, it)
+		}
+	}
+
+	// D. Append Wikipedia entries as complementary reference links
 	for _, it := range wikiItems {
-		norm := normalizeURL(it.URL)
+		cleanURL := CleanAndDeTrackURL(it.URL)
+		it.URL = cleanURL
+		norm := normalizeURL(cleanURL)
 		if !seen[norm] {
 			seen[norm] = true
 			results = append(results, it)
