@@ -15,7 +15,7 @@ let nextTabId = 1;
 const TOOLBAR_HEIGHT = 86;
 const SIDE_PANEL_WIDTH = 440;
 
-const DEFAULT_CLOUD_URL = 'https://stock-jewish-paying-drives.trycloudflare.com';
+const DEFAULT_CLOUD_URL = 'https://findra-q4pt.onrender.com';
 let configPath = '';
 
 function getConfigPath() {

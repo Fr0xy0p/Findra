@@ -131,7 +131,7 @@ if (cloudModal) {
 }
 if (btnResetCloudUrl) {
   btnResetCloudUrl.onclick = async () => {
-    const def = 'https://stock-jewish-paying-drives.trycloudflare.com';
+    const def = 'https://findra-q4pt.onrender.com';
     cloudUrlInput.value = def;
     await window.findraBrowser.setCloudUrl(def);
     closeCloudModal();
