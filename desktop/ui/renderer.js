@@ -97,11 +97,70 @@ btnHome.onclick = () => window.findraBrowser.goHome();
 btnQuickYt.onclick = () => window.findraBrowser.navigate('https://www.youtube.com');
 btnSidepanel.onclick = () => window.findraBrowser.toggleSidePanel();
 
-// Global Cmd+T shortcut listener for immediate responsiveness
+// Cloud Settings Modal
+const btnCloudConfig = document.getElementById('btn-cloud-config');
+const cloudModal = document.getElementById('cloud-modal');
+const btnCloseCloudModal = document.getElementById('btn-close-cloud-modal');
+const cloudUrlInput = document.getElementById('cloud-url-input');
+const btnSaveCloudUrl = document.getElementById('btn-save-cloud-url');
+const btnResetCloudUrl = document.getElementById('btn-reset-cloud-url');
+
+async function openCloudModal(url) {
+  if (cloudModal && cloudUrlInput) {
+    const current = url || await window.findraBrowser.getCloudUrl();
+    cloudUrlInput.value = current || '';
+    cloudModal.classList.remove('hidden');
+    cloudUrlInput.focus();
+  }
+}
+
+function closeCloudModal() {
+  if (cloudModal) cloudModal.classList.add('hidden');
+}
+
+if (btnCloudConfig) {
+  btnCloudConfig.onclick = () => openCloudModal();
+}
+if (btnCloseCloudModal) {
+  btnCloseCloudModal.onclick = closeCloudModal;
+}
+if (cloudModal) {
+  cloudModal.onclick = (e) => {
+    if (e.target === cloudModal) closeCloudModal();
+  };
+}
+if (btnResetCloudUrl) {
+  btnResetCloudUrl.onclick = async () => {
+    const def = 'https://stock-jewish-paying-drives.trycloudflare.com';
+    cloudUrlInput.value = def;
+    await window.findraBrowser.setCloudUrl(def);
+    closeCloudModal();
+  };
+}
+if (btnSaveCloudUrl) {
+  btnSaveCloudUrl.onclick = async () => {
+    const val = (cloudUrlInput.value || '').trim();
+    if (val) {
+      await window.findraBrowser.setCloudUrl(val);
+      closeCloudModal();
+    }
+  };
+}
+
+if (window.findraBrowser.onShowCloudConfig) {
+  window.findraBrowser.onShowCloudConfig((url) => {
+    openCloudModal(url);
+  });
+}
+
+// Global Shortcuts: Cmd+T (New tab), Cmd+, (Cloud settings)
 document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 't') {
     e.preventDefault();
     window.findraBrowser.newTab();
+  } else if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+    e.preventDefault();
+    openCloudModal();
   }
 });
 

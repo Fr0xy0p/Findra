@@ -184,6 +184,33 @@ Open **[http://localhost:8080](http://localhost:8080)** in your browser!
 
 ---
 
+## 🌐 1-Click Free Cloud Deployment (Zero Local Hosting)
+
+Deploy Findra permanently online 24/7 in the cloud so you can access it from any browser, phone, or Mac without keeping your terminal or laptop running!
+
+### Option 1: Render (100% Free, Recommended)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Fr0xy0p/Findra)
+
+1. Open [Render Dashboard](https://dashboard.render.com).
+2. Sign in with GitHub (`Fr0xy0p`).
+3. Click **New +** → **Web Service** → Connect your repository `Fr0xy0p/Findra`.
+4. Select runtime **Docker** (it automatically uses `Dockerfile` and `render.yaml`).
+5. Choose the **Free** instance plan and click **Create Web Service**.
+6. Render builds the multi-stage container and assigns you a permanent HTTPS URL (e.g. `https://findra.onrender.com`).
+
+### Option 2: Railway
+1. Open [Railway.app](https://railway.app).
+2. Click **New Project** → **Deploy from GitHub repo** → select `Findra`.
+3. Railway automatically detects `railway.json` / `Dockerfile` and deploys your live service.
+
+### Option 3: Connect Findra Desktop App to Your Live Cloud URL
+Inside `/Applications/Findra.app`:
+- Click the **Cloud** button on the toolbar (or press `Cmd + ,`).
+- Paste your live cloud URL (e.g. `https://findra.onrender.com`).
+- Click **Save & Connect**! The browser will now always connect directly to your live cloud server with zero localhost needed.
+
+---
+
 ## ☁️ Google Cloud Run Deployment
 
 Follow these step-by-step instructions:

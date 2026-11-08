@@ -16,7 +16,7 @@ WORKDIR /app/indexer
 COPY indexer/Cargo.* ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release || true
 COPY indexer/src ./src
-RUN cargo build --release
+RUN touch src/main.rs && cargo build --release
 
 # ----------------- STAGE 3: Go Server & Crawler Build -----------------
 FROM golang:1.24-alpine AS go-builder
@@ -59,13 +59,9 @@ COPY data/ ./data/
 # Expose HTTP ports (8080 = Go Gateway, 8081 = Rust Indexer)
 EXPOSE 8080 8081
 
-# Startup script to run both Rust index engine and Go Gateway (respects Cloud Run $PORT)
-RUN echo '#!/bin/sh\n\
-APP_PORT="${PORT:-8080}"\n\
-./indexer_bin --docs data/parsed/documents.jsonl --pagerank data/parsed/pagerank_scores.json --port 8081 &\n\
-sleep 1\n\
-./server_bin --port "${APP_PORT}" --index-url http://localhost:8081 --static-dir frontend/dist\n\
-' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+# Startup script to run both Rust index engine and Go Gateway (respects cloud provider $PORT)
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 CMD ["/app/entrypoint.sh"]
 

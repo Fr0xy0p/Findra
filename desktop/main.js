@@ -15,37 +15,48 @@ let nextTabId = 1;
 const TOOLBAR_HEIGHT = 86;
 const SIDE_PANEL_WIDTH = 440;
 
-const LOCAL_FINDRA_URL = 'http://localhost:8080';
-const LIVE_FINDRA_URL = 'https://stock-jewish-paying-drives.trycloudflare.com';
-let findraBaseUrl = LOCAL_FINDRA_URL;
+const DEFAULT_CLOUD_URL = 'https://stock-jewish-paying-drives.trycloudflare.com';
+let configPath = '';
 
-// Test whether local Findra server on port 8080 is reachable, else fallback to live URL
-function checkFindraEndpoint() {
-  const req = http.get(`${LOCAL_FINDRA_URL}/api/stats`, (res) => {
-    if (res.statusCode === 200) {
-      findraBaseUrl = LOCAL_FINDRA_URL;
-    } else {
-      findraBaseUrl = LIVE_FINDRA_URL;
+function getConfigPath() {
+  if (!configPath) {
+    try {
+      configPath = path.join(app.getPath('userData'), 'findra-config.json');
+    } catch (e) {
+      configPath = path.join(__dirname, 'findra-config.json');
     }
-  });
-  req.on('error', () => {
-    findraBaseUrl = LIVE_FINDRA_URL;
-    const startScript = '/Users/yuraj/Search-engine/start.sh';
-    if (fs.existsSync(startScript)) {
-      try {
-        const p = spawn('/bin/bash', [startScript], {
-          detached: true,
-          stdio: 'ignore',
-          cwd: '/Users/yuraj/Search-engine'
-        });
-        p.unref();
-      } catch (err) {}
+  }
+  return configPath;
+}
+
+function loadConfig() {
+  try {
+    const cp = getConfigPath();
+    if (fs.existsSync(cp)) {
+      return JSON.parse(fs.readFileSync(cp, 'utf8'));
     }
-  });
-  req.setTimeout(800, () => {
-    req.destroy();
-    findraBaseUrl = LIVE_FINDRA_URL;
-  });
+  } catch (e) {}
+  return {};
+}
+
+function saveConfig(cfg) {
+  try {
+    const cp = getConfigPath();
+    fs.writeFileSync(cp, JSON.stringify(cfg, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+let userConfig = {};
+let findraBaseUrl = DEFAULT_CLOUD_URL;
+
+// Initialize Findra endpoint directly from Cloud URL (no localhost required!)
+function initFindraEndpoint() {
+  userConfig = loadConfig();
+  if (userConfig.cloudUrl && typeof userConfig.cloudUrl === 'string' && userConfig.cloudUrl.trim()) {
+    findraBaseUrl = userConfig.cloudUrl.trim();
+  } else {
+    findraBaseUrl = DEFAULT_CLOUD_URL;
+  }
 }
 
 function getBoundsForView(isSidePanel = false) {
@@ -302,6 +313,16 @@ function setupApplicationMenu() {
       submenu: [
         { role: 'about' },
         { type: 'separator' },
+        {
+          label: 'Findra Cloud Settings...',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('show:cloudConfig', findraBaseUrl);
+            }
+          }
+        },
+        { type: 'separator' },
         { role: 'hide' },
         { role: 'hideOthers' },
         { role: 'unhide' },
@@ -405,7 +426,7 @@ function setupApplicationMenu() {
 }
 
 function createWindow() {
-  checkFindraEndpoint();
+  initFindraEndpoint();
 
   mainWindow = new BrowserWindow({
     width: 1360,
@@ -513,6 +534,29 @@ function createWindow() {
       // fallback
     }
     return [];
+  });
+
+  // Cloud URL configuration
+  ipcMain.handle('browser:getCloudUrl', () => {
+    return findraBaseUrl;
+  });
+
+  ipcMain.handle('browser:setCloudUrl', (_e, newUrl) => {
+    let clean = (newUrl || '').trim();
+    if (clean && !clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = 'https://' + clean;
+    }
+    if (!clean) clean = DEFAULT_CLOUD_URL;
+    findraBaseUrl = clean;
+    userConfig.cloudUrl = clean;
+    saveConfig(userConfig);
+
+    // Update active tab or navigate home
+    const activeTab = tabs.get(activeTabId);
+    if (activeTab) {
+      navigateActiveTab(findraBaseUrl);
+    }
+    return findraBaseUrl;
   });
 
   // Create initial tab once UI finishes loading

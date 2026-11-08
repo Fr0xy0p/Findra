@@ -20,6 +20,13 @@ contextBridge.exposeInMainWorld('findraBrowser', {
   toggleSidePanel: () => ipcRenderer.send('browser:toggleSidePanel'),
   fetchSuggestions: (query) => ipcRenderer.invoke('browser:fetchSuggestions', query),
 
+  // Cloud URL Configuration (No localhost required!)
+  getCloudUrl: () => ipcRenderer.invoke('browser:getCloudUrl'),
+  setCloudUrl: (url) => ipcRenderer.invoke('browser:setCloudUrl', url),
+  onShowCloudConfig: (callback) => {
+    ipcRenderer.on('show:cloudConfig', (_event, url) => callback(url));
+  },
+
   // Event listeners from Main process
   onTabsUpdated: (callback) => {
     ipcRenderer.on('tabs:updated', (_event, data) => callback(data));
