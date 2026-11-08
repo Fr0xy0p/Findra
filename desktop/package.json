@@ -1,0 +1,21 @@
+{
+  "name": "findra-browser",
+  "version": "1.0.0",
+  "description": "Findra Native Desktop Browser powered by Chromium and Findra Search",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [
+    "browser",
+    "findra",
+    "search-engine",
+    "chromium"
+  ],
+  "author": "Findra Team",
+  "license": "MIT",
+  "dependencies": {
+    "electron": "^33.2.0"
+  }
+}
+

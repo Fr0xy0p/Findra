@@ -1,0 +1,13 @@
+{
+  "name": "findra-search-engine",
+  "version": "1.0.0",
+  "description": "Findra Search Engine & Native Desktop Browser",
+  "scripts": {
+    "start": "./start.sh",
+    "stop": "./stop.sh",
+    "browser": "./scripts/run_browser.sh",
+    "host": "./scripts/host_live.sh"
+  },
+  "author": "Findra",
+  "license": "MIT"
+}
