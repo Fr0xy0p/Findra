@@ -10,7 +10,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # ----------------- STAGE 2: Rust Indexer Build -----------------
-FROM rust:1.85-alpine AS rust-builder
+FROM rust:alpine AS rust-builder
 RUN apk add --no-cache musl-dev
 WORKDIR /app/indexer
 COPY indexer/Cargo.* ./
@@ -39,10 +39,8 @@ RUN g++ -O3 -std=c++20 pagerank.cpp -o /app/pagerank_engine
 FROM python:3.12-alpine
 WORKDIR /app
 
-RUN apk add --no-cache bash ca-certificates curl
-
-# Install Python NLP & extraction dependencies
-RUN pip install --no-cache-dir beautifulsoup4 requests numpy
+# Pre-compiled Alpine packages for fast, reliable container runtime
+RUN apk add --no-cache bash ca-certificates curl py3-numpy py3-beautifulsoup4 py3-requests
 
 # Copy compiled binaries and built frontend
 COPY --from=go-builder /app/server_bin ./server_bin

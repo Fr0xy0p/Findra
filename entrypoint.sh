@@ -25,3 +25,4 @@ done
 # 2. Start Go Gateway & Static Web Server in foreground on $APP_PORT
 echo "[2/2] Starting Go Query Gateway & Web Server on :${APP_PORT}..."
 exec ./server_bin --port "${APP_PORT}" --index-url http://localhost:8081 --static-dir frontend/dist
+
