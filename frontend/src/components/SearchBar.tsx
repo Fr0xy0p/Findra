@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Clock, TrendingUp } from 'lucide-react';
+import { Search, X, Clock } from 'lucide-react';
 
 interface SearchBarProps {
   initialQuery?: string;
@@ -12,7 +12,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   initialQuery = '',
   onSearch,
   autoFocus = false,
-  size = 'large'
+  size = 'large',
 }) => {
   const [query, setQuery] = useState(initialQuery);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -20,16 +20,34 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const justSubmittedRef = useRef<boolean>(false);
 
+  // Sync with initialQuery and keep popup strictly closed on page navigation/mounting
   useEffect(() => {
     setQuery(initialQuery);
+    setIsOpen(false);
+    setSuggestions([]);
+    setSelectedIndex(-1);
   }, [initialQuery]);
 
-  // Fetch suggestions when query changes
+  // Fetch suggestions ONLY when user is actively interacting with the input
   useEffect(() => {
+    // If search was just submitted or input is not focused, keep popup closed
+    if (justSubmittedRef.current) {
+      setIsOpen(false);
+      return;
+    }
+
     const trimmed = query.trim();
     if (trimmed.length < 2) {
       setSuggestions([]);
+      setIsOpen(false);
+      return;
+    }
+
+    // Never fetch or open suggestions if user is not currently focusing the input field
+    if (typeof document !== 'undefined' && document.activeElement !== inputRef.current) {
+      setIsOpen(false);
       return;
     }
 
@@ -38,8 +56,19 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         const res = await fetch(`/api/suggest?q=${encodeURIComponent(trimmed)}`);
         if (res.ok) {
           const data = await res.json();
-          setSuggestions(data.suggestions || []);
-          setIsOpen(true);
+          const list = data.suggestions || [];
+          setSuggestions(list);
+          // Only show popup if input is STILL focused and not just submitted
+          if (
+            typeof document !== 'undefined' &&
+            document.activeElement === inputRef.current &&
+            list.length > 0 &&
+            !justSubmittedRef.current
+          ) {
+            setIsOpen(true);
+          } else {
+            setIsOpen(false);
+          }
         }
       } catch (err) {
         // silent fail on suggest
@@ -52,8 +81,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   // Close dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-          inputRef.current && !inputRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
@@ -64,17 +97,28 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const handleSubmit = (searchQuery: string) => {
     const trimmed = searchQuery.trim();
     if (!trimmed) return;
+
+    justSubmittedRef.current = true;
     setIsOpen(false);
+    setSuggestions([]);
+    setSelectedIndex(-1);
+    inputRef.current?.blur();
+
     onSearch(trimmed);
+
+    // Reset submission lock after brief transition
+    setTimeout(() => {
+      justSubmittedRef.current = false;
+    }, 300);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
+      setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex(prev => (prev > 0 ? prev - 1 : suggestions.length - 1));
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
@@ -86,6 +130,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       }
     } else if (e.key === 'Escape') {
       setIsOpen(false);
+      setSelectedIndex(-1);
     }
   };
 
@@ -101,17 +146,25 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         } ${isLarge ? 'h-13 px-5' : 'h-11 px-4'}`}
       >
         <Search className={`${isLarge ? 'w-5 h-5' : 'w-4 h-4'} text-slate-400 mr-3 flex-shrink-0`} />
-        
+
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => {
+            justSubmittedRef.current = false;
             setQuery(e.target.value);
             setSelectedIndex(-1);
           }}
           onFocus={() => {
+            justSubmittedRef.current = false;
             if (suggestions.length > 0) setIsOpen(true);
+          }}
+          onBlur={() => {
+            // Slight delay so onMouseDown on suggestions can execute before close
+            setTimeout(() => {
+              setIsOpen(false);
+            }, 150);
           }}
           onKeyDown={handleKeyDown}
           autoFocus={autoFocus}
@@ -127,9 +180,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             onClick={() => {
               setQuery('');
               setSuggestions([]);
+              setIsOpen(false);
               inputRef.current?.focus();
             }}
-            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -145,7 +199,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           {suggestions.map((item, idx) => (
             <div
               key={idx}
-              onClick={() => {
+              onMouseDown={(e) => {
+                e.preventDefault();
                 setQuery(item);
                 handleSubmit(item);
               }}
@@ -165,4 +220,3 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     </div>
   );
 };
-

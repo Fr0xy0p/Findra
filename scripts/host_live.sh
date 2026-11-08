@@ -45,3 +45,4 @@ else
   echo "[-] Could not retrieve tunnel URL in time. Check logs/tunnel.log:"
   cat logs/tunnel.log | tail -n 20
 fi
+
