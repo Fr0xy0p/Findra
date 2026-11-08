@@ -68,33 +68,63 @@ func (gw *APIGateway) handleSearch(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	res, err := gw.index.Search(q, page, limit)
 
-	// If local index returned 0 hits, failed, or only returned weak/unrelated matches,
-	// trigger Worldwide Live Web Discovery!
-	if err != nil || res == nil || len(res.Results) == 0 || !isStrongMatch(q, res) {
-		fmt.Printf("🌐 [Findra Gateway] Local index lacks strong matches for %q. Triggering Worldwide Live Search...\n", q)
-		liveItems, liveErr := gw.liveSearch.DiscoverLiveWeb(q, limit)
+	// Pillar 1 & 2: Hybrid Web Federation & Auto-Indexing
+	// If local index returned fewer results than requested, or lacks strong matches,
+	// seamlessly blend in live results from the worldwide web!
+	if err != nil || res == nil || len(res.Results) < limit || !isStrongMatch(q, res) {
+		needed := limit
+		if res != nil {
+			needed = limit - len(res.Results)
+		}
+		if needed < 5 {
+			needed = 5
+		}
+
+		fmt.Printf("🌐 [Findra Gateway] Supplementing query %q with Worldwide Web Discovery (needed=%d)...\n", q, needed)
+		liveItems, liveErr := gw.liveSearch.DiscoverLiveWeb(q, needed)
 		if liveErr == nil && len(liveItems) > 0 {
-			tookMs := float64(time.Since(startTime).Microseconds()) / 1000.0
-			res = &SearchResponse{
-				Query:            q,
-				InstantAnswer:    instantAns,
-				TotalHits:        len(liveItems),
-				TookMs:           tookMs,
-				Page:             page,
-				PageSize:         limit,
-				TotalPages:       1,
-				Results:          liveItems,
-				IsLiveDiscovered: true,
-				SourceNotice:     "🌐 Worldwide Web Real-Time Retrieval",
+			if res == nil {
+				res = &SearchResponse{
+					Query:         q,
+					InstantAnswer: instantAns,
+					Page:          page,
+					PageSize:      limit,
+					Results:       []SearchResultItem{},
+				}
 			}
 
-			// Asynchronously auto-index into Findra's local index
-			go func(items []SearchResultItem) {
-				docsPath := "data/parsed/documents.jsonl"
-				crawlPath := "data/raw_crawled/crawl_output.jsonl"
-				gw.liveSearch.AutoIndexDiscovered(docsPath, crawlPath, gw.index, items)
-				gw.cache.Clear()
-			}(liveItems)
+			// Deduplicate against existing results by URL
+			existing := make(map[string]bool)
+			for _, item := range res.Results {
+				existing[normalizeURL(item.URL)] = true
+			}
+
+			var newlyDiscovered []SearchResultItem
+			for _, liveItem := range liveItems {
+				norm := normalizeURL(liveItem.URL)
+				if !existing[norm] {
+					existing[norm] = true
+					res.Results = append(res.Results, liveItem)
+					newlyDiscovered = append(newlyDiscovered, liveItem)
+				}
+			}
+
+			tookMs := float64(time.Since(startTime).Microseconds()) / 1000.0
+			res.TotalHits = len(res.Results)
+			res.TookMs = tookMs
+			res.TotalPages = (res.TotalHits + limit - 1) / limit
+			res.IsLiveDiscovered = true
+			res.SourceNotice = "🌐 Worldwide Web Real-Time Retrieval"
+
+			// Pillar 2: Asynchronously auto-index newly discovered pages into Findra's permanent index
+			if len(newlyDiscovered) > 0 {
+				go func(items []SearchResultItem) {
+					docsPath := "data/parsed/documents.jsonl"
+					crawlPath := "data/raw_crawled/crawl_output.jsonl"
+					gw.liveSearch.AutoIndexDiscovered(docsPath, crawlPath, gw.index, items)
+					gw.cache.Clear()
+				}(newlyDiscovered)
+			}
 		} else if err != nil && instantAns == nil {
 			http.Error(w, fmt.Sprintf(`{"error":"Index search failed: %v"}`, err), http.StatusServiceUnavailable)
 			return

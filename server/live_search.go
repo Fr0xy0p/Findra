@@ -171,6 +171,120 @@ func resolveNavigationalBrand(query string) *SearchResultItem {
 			title:   "Discord - Group Chat That’s All Fun & Games",
 			snippet: "Discord is great for playing games and chilling with friends, or even building a worldwide community.",
 		},
+		"apple": {
+			url:     "https://www.apple.com/",
+			domain:  "www.apple.com",
+			title:   "Apple",
+			snippet: "Discover the innovative world of Apple. Explore iPhone, iPad, Apple Watch, Mac, and Apple TV.",
+		},
+		"microsoft": {
+			url:     "https://www.microsoft.com/",
+			domain:  "www.microsoft.com",
+			title:   "Microsoft - Cloud, Computers, Apps & Gaming",
+			snippet: "Explore Microsoft products and services for home or business. Shop Surface, Microsoft 365, Xbox, Windows, Azure, and more.",
+		},
+		"openai": {
+			url:     "https://openai.com/",
+			domain:  "openai.com",
+			title:   "OpenAI",
+			snippet: "OpenAI is an AI research and deployment company. Our mission is to ensure that artificial general intelligence benefits all of humanity.",
+		},
+		"claude": {
+			url:     "https://claude.ai/",
+			domain:  "claude.ai",
+			title:   "Claude - Anthropic",
+			snippet: "Talk with Claude, an AI assistant from Anthropic that is helpful, harmless, and honest.",
+		},
+		"gemini": {
+			url:     "https://gemini.google.com/",
+			domain:  "gemini.google.com",
+			title:   "Gemini - Google DeepMind",
+			snippet: "Meet Gemini, Google's next-generation AI model built from the ground up for multimodality.",
+		},
+		"deepseek": {
+			url:     "https://www.deepseek.com/",
+			domain:  "www.deepseek.com",
+			title:   "DeepSeek - Into the Unknown",
+			snippet: "DeepSeek is an advanced AI research organization dedicated to making state-of-the-art open models accessible worldwide.",
+		},
+		"bbc": {
+			url:     "https://www.bbc.com/",
+			domain:  "www.bbc.com",
+			title:   "BBC - Home",
+			snippet: "Breaking news, sport, TV, radio and a whole lot more. The BBC informs, educates and entertains - wherever you are, whatever your age.",
+		},
+		"cnn": {
+			url:     "https://www.cnn.com/",
+			domain:  "www.cnn.com",
+			title:   "CNN - Breaking News, Latest News and Videos",
+			snippet: "View the latest news and breaking news today for U.S., world, weather, entertainment, politics and health at CNN.com.",
+		},
+		"reuters": {
+			url:     "https://www.reuters.com/",
+			domain:  "www.reuters.com",
+			title:   "Reuters - Breaking International News & Views",
+			snippet: "Find latest news from every corner of the globe at Reuters.com, your online source for international news coverage.",
+		},
+		"nytimes": {
+			url:     "https://www.nytimes.com/",
+			domain:  "www.nytimes.com",
+			title:   "The New York Times - Breaking News, US News, World News and Videos",
+			snippet: "Live news, investigations, opinion, photos and video by the journalists of The New York Times from more than 150 countries around the world.",
+		},
+		"espn": {
+			url:     "https://www.espn.com/",
+			domain:  "www.espn.com",
+			title:   "ESPN - Serving Sports Fans. Anytime. Anywhere.",
+			snippet: "Visit ESPN for live scores, highlights-and sports news. Stream exclusive games on ESPN+ and play fantasy sports.",
+		},
+		"imdb": {
+			url:     "https://www.imdb.com/",
+			domain:  "www.imdb.com",
+			title:   "IMDb: Ratings, Reviews, and Where to Watch the Best Movies & TV Shows",
+			snippet: "IMDb is the world's most popular and authoritative source for movie, TV and celebrity content.",
+		},
+		"pinterest": {
+			url:     "https://www.pinterest.com/",
+			domain:  "www.pinterest.com",
+			title:   "Pinterest",
+			snippet: "Discover recipes, home ideas, style inspiration and other ideas to try on Pinterest.",
+		},
+		"tiktok": {
+			url:     "https://www.tiktok.com/",
+			domain:  "www.tiktok.com",
+			title:   "TikTok - Make Your Day",
+			snippet: "TikTok is the destination for short-form mobile videos. Our mission is to capture and present the world's creativity, knowledge, and precious life moments.",
+		},
+		"medium": {
+			url:     "https://medium.com/",
+			domain:  "medium.com",
+			title:   "Medium - Where good ideas find you.",
+			snippet: "Medium is an open platform where readers find dynamic thinking, and where expert and undiscovered voices can share their writing on any topic.",
+		},
+		"quora": {
+			url:     "https://www.quora.com/",
+			domain:  "www.quora.com",
+			title:   "Quora - A place to share knowledge and better understand the world",
+			snippet: "Quora is a place to gain and share knowledge. It's a platform to ask questions and connect with people who contribute unique insights and quality answers.",
+		},
+		"uber": {
+			url:     "https://www.uber.com/",
+			domain:  "www.uber.com",
+			title:   "Uber - Request a ride, order food, and earn money",
+			snippet: "Get a ride in minutes. Or become a driver and earn money on your schedule. Uber is finding you better ways to move, work, and succeed.",
+		},
+		"airbnb": {
+			url:     "https://www.airbnb.com/",
+			domain:  "www.airbnb.com",
+			title:   "Airbnb: Vacation Rentals, Cabins, Beach Houses, Unique Homes & Experiences",
+			snippet: "Find vacation rentals, cabins, beach houses, unique homes and experiences around the world - all made possible by hosts on Airbnb.",
+		},
+		"tesla": {
+			url:     "https://www.tesla.com/",
+			domain:  "www.tesla.com",
+			title:   "Tesla - Electric Cars, Solar & Clean Energy",
+			snippet: "Tesla is accelerating the world's transition to sustainable energy with electric cars, solar and integrated renewable energy solutions.",
+		},
 	}
 
 	if b, ok := brands[q]; ok {
@@ -548,6 +662,26 @@ func (s *LiveSearchService) AutoIndexDiscovered(docsPath, crawlPath string, inde
 
 	if newCount > 0 {
 		fmt.Printf("🌐 [Live Auto-Indexer] Appended %d new worldwide pages to %s (max_id=%d)\n", newCount, docsPath, maxID)
+
+		// Update pagerank_scores.json with strong authority for newly discovered pages
+		prPath := filepath.Join(filepath.Dir(docsPath), "pagerank_scores.json")
+		if prBytes, prErr := os.ReadFile(prPath); prErr == nil {
+			var prMap map[string]interface{}
+			if err := json.Unmarshal(prBytes, &prMap); err == nil {
+				for id := maxID - uint32(newCount) + 1; id <= maxID; id++ {
+					prMap[fmt.Sprintf("%d", id)] = map[string]interface{}{
+						"raw":              0.0001,
+						"normalized":       0.85,
+						"trustrank":        0.95,
+						"trust_multiplier": 1,
+					}
+				}
+				if updatedBytes, err := json.Marshal(prMap); err == nil {
+					_ = os.WriteFile(prPath, updatedBytes, 0644)
+				}
+			}
+		}
+
 		if indexClient != nil {
 			if err := indexClient.Reload(); err != nil {
 				fmt.Printf("[-] Failed to reload Rust index server: %v\n", err)

@@ -82,3 +82,4 @@ window.addEventListener('wheel', (e) => {
     }, 200);
   }
 }, { passive: true });
+

@@ -37,26 +37,36 @@ except ImportError:
 VITAL_TOPICS = {
     "tech": [
         "Computer science", "Artificial intelligence", "Machine learning", "Deep learning",
-        "Quantum computing", "Internet", "World Wide Web", "Operating system",
-        "Linux", "Python (programming language)", "Rust (programming language)", "C++",
-        "Algorithm", "Data structure", "Cryptography", "Database",
-        "Cloud computing", "Microprocessor", "Computer network", "Software engineering"
+        "Large language model", "Quantum computing", "Internet", "World Wide Web", "Operating system",
+        "Linux", "Python (programming language)", "Rust (programming language)", "C++", "Go (programming language)",
+        "JavaScript", "TypeScript", "WebAssembly", "Algorithm", "Data structure", "Cryptography", "Database",
+        "Cloud computing", "Microprocessor", "Semiconductor", "Computer network", "Software engineering",
+        "Cybersecurity", "Robotics", "Blockchain", "OpenAI", "Google", "Apple Inc.", "Microsoft"
     ],
     "science": [
         "Physics", "Chemistry", "Biology", "Astronomy", "Quantum mechanics",
-        "Theory of relativity", "Gravitation", "Evolution", "DNA",
-        "Photosynthesis", "Black hole", "Big Bang", "Thermodynamics",
-        "Plate tectonics", "Atom", "Periodic table", "Solar System", "Ecology"
+        "Theory of relativity", "Gravitation", "Evolution", "DNA", "CRISPR gene editing",
+        "Photosynthesis", "Black hole", "Big Bang", "Thermodynamics", "Nuclear fusion",
+        "Plate tectonics", "Atom", "Periodic table", "Solar System", "James Webb Space Telescope",
+        "Mars", "Moon", "Ecology", "Climate change", "Renewable energy", "Vaccine"
     ],
     "geography": [
-        "Earth", "Tokyo", "London", "Paris", "New York City", "India",
-        "United States", "Japan", "United Kingdom", "France", "Germany",
-        "Australia", "Canada", "Pacific Ocean", "Mount Everest", "Amazon rainforest"
+        "Earth", "Tokyo", "London", "Paris", "New York City", "India", "New Delhi",
+        "United States", "Japan", "United Kingdom", "France", "Germany", "Berlin",
+        "Australia", "Sydney", "Canada", "Pacific Ocean", "Atlantic Ocean", "Mount Everest",
+        "Amazon rainforest", "Sahara", "China", "Beijing", "Brazil", "South Africa",
+        "South Korea", "Seoul", "Singapore", "Switzerland", "United Arab Emirates", "Dubai"
     ],
     "history_and_people": [
-        "Albert Einstein", "Isaac Newton", "Marie Curie", "Alan Turing",
-        "Nikola Tesla", "Leonardo da Vinci", "Aristotle", "Galileo Galilei",
-        "Industrial Revolution", "Renaissance", "Ancient Egypt", "Roman Empire"
+        "Albert Einstein", "Isaac Newton", "Marie Curie", "Alan Turing", "Ada Lovelace",
+        "Nikola Tesla", "Leonardo da Vinci", "Aristotle", "Galileo Galilei", "Stephen Hawking",
+        "Charles Darwin", "Alexander Fleming", "Steve Jobs", "Mahatma Gandhi", "Nelson Mandela",
+        "Abraham Lincoln", "William Shakespeare", "Industrial Revolution", "Renaissance",
+        "Ancient Egypt", "Roman Empire", "World War I", "World War II", "Apollo program"
+    ],
+    "culture_and_sports": [
+        "Olympic Games", "FIFA World Cup", "Premier League", "National Basketball Association",
+        "Cricket", "Cinema", "Music", "Animation", "Video game", "Internet meme"
     ]
 }
 
@@ -152,6 +162,7 @@ def main():
     os.makedirs(os.path.dirname(args.docs_path), exist_ok=True)
     os.makedirs(os.path.dirname(args.crawl_path), exist_ok=True)
 
+    original_max_id = max_id
     print(f"[*] Processing & appending {len(results)} new articles into {args.docs_path}...")
     with open(args.docs_path, "a", encoding="utf-8") as docs_f, open(args.crawl_path, "a", encoding="utf-8") as crawl_f:
         for r in results:
@@ -195,6 +206,25 @@ def main():
             crawl_f.write(json.dumps(crawl_entry) + "\n")
 
     print(f"[+] Successfully wrote {len(results)} articles! (Total docs now ~{max_id})")
+
+    # Update PageRank scores
+    pagerank_path = os.path.join(os.path.dirname(args.docs_path), "pagerank_scores.json")
+    if os.path.exists(pagerank_path):
+        try:
+            with open(pagerank_path, "r", encoding="utf-8") as pr_f:
+                pr_data = json.load(pr_f)
+            for doc_id in range(original_max_id + 1, max_id + 1):
+                pr_data[str(doc_id)] = {
+                    "raw": 0.0001,
+                    "normalized": 0.85,
+                    "trustrank": 0.95,
+                    "trust_multiplier": 1
+                }
+            with open(pagerank_path, "w", encoding="utf-8") as pr_f:
+                json.dump(pr_data, pr_f)
+            print(f"[+] Updated PageRank scores for {len(results)} new documents in {pagerank_path}")
+        except Exception as pr_err:
+            print(f"[-] Could not update PageRank file: {pr_err}")
 
     # 4. Trigger Rust Hot-Reload
     try:

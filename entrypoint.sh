@@ -10,6 +10,8 @@ echo "========================================="
 
 # 1. Start Rust Index Engine in background on port 8081
 echo "[1/2] Starting Rust Inverted Index Server on :8081..."
+mkdir -p data/parsed data/raw_crawled
+touch data/parsed/documents.jsonl
 ./indexer_bin --docs data/parsed/documents.jsonl --pagerank data/parsed/pagerank_scores.json --port 8081 &
 
 # Wait for indexer to be healthy

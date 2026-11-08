@@ -25,11 +25,13 @@ pagerank/pagerank_engine
 *.so
 *.dylib
 
-# Crawl & Index Data (Keep seeds.txt)
+# Crawl & Index Data (Keep seeds.txt and core seed datasets)
 data/raw_crawled/*.jsonl
 data/parsed/*.json
 data/parsed/*.jsonl
 !data/seeds.txt
+!data/parsed/documents.jsonl
+!data/parsed/pagerank_scores.json
 
 # OS & IDE
 .DS_Store
