@@ -62,6 +62,7 @@ mkdir -p "$APP_RES_DIR"
 cp "$DIR/desktop/package.json" "$APP_RES_DIR/"
 cp "$DIR/desktop/main.js" "$APP_RES_DIR/"
 cp "$DIR/desktop/preload.js" "$APP_RES_DIR/"
+cp "$DIR/desktop/tab-preload.js" "$APP_RES_DIR/"
 cp -R "$DIR/desktop/ui" "$APP_RES_DIR/"
 
 echo "[4/5] Ad-hoc signing app bundle with macOS codesign..."

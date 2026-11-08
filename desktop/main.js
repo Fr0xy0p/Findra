@@ -4,6 +4,10 @@ const http = require('http');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
+// Enable native trackpad swipe history navigation gestures (macOS two-finger swipe)
+app.commandLine.appendSwitch('enable-features', 'TouchpadOverscrollHistoryNavigation');
+app.commandLine.appendSwitch('overscroll-history-navigation', '1');
+
 let mainWindow = null;
 let sidePanelView = null;
 let isSidePanelOpen = false;
@@ -155,7 +159,8 @@ function createTab(initialUrl = findraBaseUrl) {
       nodeIntegration: false,
       plugins: true,
       webSecurity: true,
-      scrollBounce: true
+      scrollBounce: true,
+      preload: path.join(__dirname, 'tab-preload.js')
     }
   });
 
@@ -461,6 +466,59 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'ui', 'index.html'));
 
   mainWindow.on('resize', updateLayout);
+
+  // Handle macOS native 3-finger swipe gesture
+  mainWindow.on('swipe', (_event, direction) => {
+    const tab = tabs.get(activeTabId);
+    if (!tab) return;
+    const wc = tab.view.webContents;
+    const history = wc.navigationHistory;
+    if (direction === 'right') { // Swipe right -> Back
+      if (history && history.canGoBack()) history.goBack();
+      else if (wc.canGoBack()) wc.goBack();
+    } else if (direction === 'left') { // Swipe left -> Forward
+      if (history && history.canGoForward()) history.goForward();
+      else if (wc.canGoForward()) wc.goForward();
+    }
+  });
+
+  // Handle hardware mouse/trackpad back & forward commands
+  mainWindow.on('app-command', (_event, cmd) => {
+    const tab = tabs.get(activeTabId);
+    if (!tab) return;
+    const wc = tab.view.webContents;
+    const history = wc.navigationHistory;
+    if (cmd === 'browser-backward') {
+      if (history && history.canGoBack()) history.goBack();
+      else if (wc.canGoBack()) wc.goBack();
+    } else if (cmd === 'browser-forward') {
+      if (history && history.canGoForward()) history.goForward();
+      else if (wc.canGoForward()) wc.goForward();
+    }
+  });
+
+  // Handle trackpad two-finger horizontal swipe from tab content
+  ipcMain.on('tab:gesture-back', (event) => {
+    for (const [, tab] of tabs.entries()) {
+      if (tab.view.webContents === event.sender) {
+        const history = tab.view.webContents.navigationHistory;
+        if (history && history.canGoBack()) history.goBack();
+        else if (tab.view.webContents.canGoBack()) tab.view.webContents.goBack();
+        return;
+      }
+    }
+  });
+
+  ipcMain.on('tab:gesture-forward', (event) => {
+    for (const [, tab] of tabs.entries()) {
+      if (tab.view.webContents === event.sender) {
+        const history = tab.view.webContents.navigationHistory;
+        if (history && history.canGoForward()) history.goForward();
+        else if (tab.view.webContents.canGoForward()) tab.view.webContents.goForward();
+        return;
+      }
+    }
+  });
 
   // Setup IPC Handlers
   ipcMain.on('browser:newTab', (_e, url) => createTab(url || findraBaseUrl));
