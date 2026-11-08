@@ -1,4 +1,32 @@
-# Findra Search Engine (Google / Brave Architecture)
+# Findra Browser & Search Engine
+
+[![Download for macOS](https://img.shields.io/badge/Download_for_macOS-DMG-0284c7?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Fr0xy0p/Findra/releases/latest/download/Findra-mac-arm64.dmg)
+[![Live Cloud App](https://img.shields.io/badge/Live_Cloud_Web-Online-10b981?style=for-the-badge&logo=render&logoColor=white)](https://findra-q4pt.onrender.com/)
+[![GitHub Release](https://img.shields.io/github/v/release/Fr0xy0p/Findra?style=for-the-badge&color=8b5cf6)](https://github.com/Fr0xy0p/Findra/releases/latest)
+
+> **Findra** is an AI-enhanced native desktop browser and production-grade search engine with a polyglot architecture (Rust Inverted Index + Go Gateway + React TypeScript UI).
+
+---
+
+## 📥 Download & Install Findra on Mac
+
+Anyone can download and install Findra directly from GitHub Releases:
+
+| Installer | Architecture | Download Link |
+| :--- | :--- | :--- |
+| **macOS Disk Image (.dmg)** | Apple Silicon (M1/M2/M3/M4) | [**Download Findra-mac-arm64.dmg**](https://github.com/Fr0xy0p/Findra/releases/latest/download/Findra-mac-arm64.dmg) |
+| **macOS Zip Archive (.zip)** | Apple Silicon (M1/M2/M3/M4) | [**Download Findra-mac-arm64.zip**](https://github.com/Fr0xy0p/Findra/releases/latest/download/Findra-mac-arm64.zip) |
+| **Live Web App (Cloud)** | Any device / browser | [**Open findra-q4pt.onrender.com**](https://findra-q4pt.onrender.com/) |
+
+### Quick Installation:
+1. Download [**`Findra-mac-arm64.dmg`**](https://github.com/Fr0xy0p/Findra/releases/latest/download/Findra-mac-arm64.dmg).
+2. Double-click the downloaded `.dmg` file.
+3. Drag **Findra.app** into your **Applications** folder.
+4. Launch Findra from **Spotlight** (`Cmd + Space` → `Findra`) or **Launchpad**!
+
+> **macOS Gatekeeper Note**: On first launch, macOS may show a prompt stating the app is from an unidentified developer. Simply **right-click Findra.app** in Finder / Applications and select **Open** (or click **Open Anyway** in *System Settings > Privacy & Security*).
+
+---
 
 A production-grade, polite web search engine built from first principles following the exact polyglot industry-standard architecture:
 
