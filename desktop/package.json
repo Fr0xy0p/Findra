@@ -1,10 +1,13 @@
 {
   "name": "findra-browser",
+  "productName": "Findra",
   "version": "1.0.0",
   "description": "Findra Native Desktop Browser powered by Chromium and Findra Search",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist:win": "electron-builder --win --x64",
+    "dist:mac": "electron-builder --mac --arm64"
   },
   "keywords": [
     "browser",
@@ -14,8 +17,53 @@
   ],
   "author": "Findra Team",
   "license": "MIT",
-  "dependencies": {
-    "electron": "^33.2.0"
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.findra.browser",
+    "productName": "Findra",
+    "directories": {
+      "output": "../dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "ui/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "../build_assets/Findra.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Findra Browser",
+      "uninstallDisplayName": "Findra Browser"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "../build_assets/Findra.icns"
+    }
   }
 }
-

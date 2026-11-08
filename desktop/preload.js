@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('findraBrowser', {
+  platform: process.platform,
+
   // Navigation actions
   navigate: (url) => ipcRenderer.send('browser:navigate', url),
   goBack: () => ipcRenderer.send('browser:goBack'),

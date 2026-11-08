@@ -14,6 +14,17 @@ const btnSidepanel = document.getElementById('btn-sidepanel');
 let currentSuggestions = [];
 let selectedSuggestionIndex = -1;
 
+// Platform-specific styling adjustments (Windows vs macOS)
+if (window.findraBrowser && window.findraBrowser.platform !== 'darwin') {
+  const spacer = document.getElementById('traffic-light-spacer');
+  if (spacer) spacer.style.display = 'none';
+  const tabContainer = document.getElementById('tab-bar-container');
+  if (tabContainer) {
+    tabContainer.style.paddingLeft = '12px';
+    tabContainer.style.paddingRight = '140px'; // Space for Windows window control buttons
+  }
+}
+
 // ---------------- TAB MANAGEMENT ----------------
 function renderTabs(tabList, activeId) {
   tabStrip.innerHTML = '';

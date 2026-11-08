@@ -47,3 +47,4 @@ jobs:
             dist/Findra-mac-arm64.dmg
             dist/Findra-mac-arm64.zip
           generate_release_notes: true
+

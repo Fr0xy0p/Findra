@@ -37,3 +37,4 @@ echo "=================================================="
 echo "🎉 RELEASE PUBLISHED SUCCESSFULLY!"
 echo "👉 https://github.com/Fr0xy0p/Findra/releases"
 echo "=================================================="
+

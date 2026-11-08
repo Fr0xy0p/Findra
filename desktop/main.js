@@ -428,20 +428,35 @@ function setupApplicationMenu() {
 function createWindow() {
   initFindraEndpoint();
 
-  mainWindow = new BrowserWindow({
+  const isMac = process.platform === 'darwin';
+
+  const windowOptions = {
     width: 1360,
     height: 880,
     minWidth: 800,
     minHeight: 500,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 14, y: 14 },
     backgroundColor: '#121216',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false
     }
-  });
+  };
+
+  if (isMac) {
+    windowOptions.titleBarStyle = 'hiddenInset';
+    windowOptions.trafficLightPosition = { x: 14, y: 14 };
+  } else {
+    // Windows & Linux: native titleBarOverlay with dark controls matching tab row
+    windowOptions.titleBarStyle = 'hidden';
+    windowOptions.titleBarOverlay = {
+      color: '#111116',
+      symbolColor: '#cbd5e1',
+      height: 42
+    };
+  }
+
+  mainWindow = new BrowserWindow(windowOptions);
 
   mainWindow.loadFile(path.join(__dirname, 'ui', 'index.html'));
 

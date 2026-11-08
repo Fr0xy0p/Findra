@@ -1,5 +1,6 @@
 # Findra Browser & Search Engine
 
+[![Download for Windows](https://img.shields.io/badge/Download_for_Windows-ZIP-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Fr0xy0p/Findra/releases/latest/download/Findra-1.0.0-win.zip)
 [![Download for macOS](https://img.shields.io/badge/Download_for_macOS-DMG-0284c7?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Fr0xy0p/Findra/releases/latest/download/Findra-mac-arm64.dmg)
 [![Live Cloud App](https://img.shields.io/badge/Live_Cloud_Web-Online-10b981?style=for-the-badge&logo=render&logoColor=white)](https://findra-q4pt.onrender.com/)
 [![GitHub Release](https://img.shields.io/github/v/release/Fr0xy0p/Findra?style=for-the-badge&color=8b5cf6)](https://github.com/Fr0xy0p/Findra/releases/latest)
@@ -8,21 +9,28 @@
 
 ---
 
-## 📥 Download & Install Findra on Mac
+## 📥 Download & Install Findra (Windows & Mac)
 
 Anyone can download and install Findra directly from GitHub Releases:
 
-| Installer | Architecture | Download Link |
-| :--- | :--- | :--- |
-| **macOS Disk Image (.dmg)** | Apple Silicon (M1/M2/M3/M4) | [**Download Findra-mac-arm64.dmg**](https://github.com/Fr0xy0p/Findra/releases/latest/download/Findra-mac-arm64.dmg) |
-| **macOS Zip Archive (.zip)** | Apple Silicon (M1/M2/M3/M4) | [**Download Findra-mac-arm64.zip**](https://github.com/Fr0xy0p/Findra/releases/latest/download/Findra-mac-arm64.zip) |
-| **Live Web App (Cloud)** | Any device / browser | [**Open findra-q4pt.onrender.com**](https://findra-q4pt.onrender.com/) |
+| Platform | Installer | Architecture | Download Link |
+| :--- | :--- | :--- | :--- |
+| **Windows** | **Windows ZIP Package** | x64 (64-bit) | [**Download Findra-1.0.0-win.zip**](https://github.com/Fr0xy0p/Findra/releases/latest/download/Findra-1.0.0-win.zip) |
+| **macOS** | **macOS Disk Image (.dmg)** | Apple Silicon (M1/M2/M3/M4) | [**Download Findra-mac-arm64.dmg**](https://github.com/Fr0xy0p/Findra/releases/latest/download/Findra-mac-arm64.dmg) |
+| **macOS** | **macOS Zip Archive (.zip)** | Apple Silicon (M1/M2/M3/M4) | [**Download Findra-mac-arm64.zip**](https://github.com/Fr0xy0p/Findra/releases/latest/download/Findra-mac-arm64.zip) |
+| **Any Device** | **Live Web App (Cloud)** | Browser / Mobile | [**Open findra-q4pt.onrender.com**](https://findra-q4pt.onrender.com/) |
 
 ### Quick Installation:
+
+#### On Windows:
+1. Download [**`Findra-1.0.0-win.zip`**](https://github.com/Fr0xy0p/Findra/releases/latest/download/Findra-1.0.0-win.zip).
+2. Extract the ZIP archive anywhere on your PC.
+3. Double-click **`Findra.exe`** to launch Findra Browser!
+
+#### On macOS:
 1. Download [**`Findra-mac-arm64.dmg`**](https://github.com/Fr0xy0p/Findra/releases/latest/download/Findra-mac-arm64.dmg).
-2. Double-click the downloaded `.dmg` file.
-3. Drag **Findra.app** into your **Applications** folder.
-4. Launch Findra from **Spotlight** (`Cmd + Space` → `Findra`) or **Launchpad**!
+2. Double-click the downloaded `.dmg` file and drag **Findra.app** into your **Applications** folder.
+3. Launch Findra from **Spotlight** (`Cmd + Space` → `Findra`) or **Launchpad**!
 
 > **macOS Gatekeeper Note**: On first launch, macOS may show a prompt stating the app is from an unidentified developer. Simply **right-click Findra.app** in Finder / Applications and select **Open** (or click **Open Anyway** in *System Settings > Privacy & Security*).
 
