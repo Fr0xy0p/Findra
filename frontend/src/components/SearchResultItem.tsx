@@ -67,6 +67,29 @@ export const SearchResultItem: React.FC<Props> = ({
     result.title.toLowerCase().includes('official site')
   );
 
+  const isEmbedRestricted = (urlStr: string): boolean => {
+    try {
+      const host = new URL(urlStr).hostname.toLowerCase();
+      const restricted = [
+        'youtube.com',
+        'youtu.be',
+        'google.com',
+        'facebook.com',
+        'twitter.com',
+        'x.com',
+        'instagram.com',
+        'linkedin.com',
+        'netflix.com',
+        'accounts.google.com',
+      ];
+      return restricted.some((d) => host === d || host.endsWith('.' + d));
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const shouldOpenInNewTab = isEmbedRestricted(result.url) || !inAppBrowserEnabled;
+
   return (
     <article className="group mb-7 max-w-2xl text-left">
       {/* URL Breadcrumb & Favicon */}
@@ -89,7 +112,13 @@ export const SearchResultItem: React.FC<Props> = ({
         <h2 className="text-xl font-normal leading-normal">
           <a
             href={result.url}
+            target={shouldOpenInNewTab ? '_blank' : undefined}
+            rel={shouldOpenInNewTab ? 'noopener noreferrer' : undefined}
             onClick={(e) => {
+              if (shouldOpenInNewTab) {
+                // Let browser open native tab directly
+                return;
+              }
               if (inAppBrowserEnabled && onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
                 e.preventDefault();
                 onOpenInBrowser(result.url, result.title);

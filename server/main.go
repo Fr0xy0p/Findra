@@ -275,10 +275,20 @@ func (s *SPAServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := filepath.Join(s.staticDir, filepath.Clean(r.URL.Path))
 	info, err := os.Stat(path)
 	if err == nil && !info.IsDir() {
+		if strings.HasSuffix(path, ".html") {
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			w.Header().Set("Pragma", "no-cache")
+			w.Header().Set("Expires", "0")
+		} else {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
 		http.ServeFile(w, r, path)
 		return
 	}
 	// Fallback to index.html for SPA router
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 	http.ServeFile(w, r, filepath.Join(s.staticDir, "index.html"))
 }
 

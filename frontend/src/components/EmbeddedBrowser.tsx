@@ -17,7 +17,9 @@ import {
   Gamepad2,
   Tv,
   Radio,
-  AlertCircle
+  AlertCircle,
+  Search,
+  ShieldAlert
 } from 'lucide-react';
 
 interface ReaderData {
@@ -46,10 +48,6 @@ interface YouTubeEmbedInfo {
   query?: string;
 }
 
-/**
- * parseYouTubeEmbed converts any YouTube URL (watch, shorts, playlist, query, or home)
- * into an official cross-origin embed URL from youtube-nocookie.com
- */
 export function parseYouTubeEmbed(urlStr: string): YouTubeEmbedInfo {
   try {
     let clean = urlStr.trim();
@@ -103,7 +101,8 @@ export function parseYouTubeEmbed(urlStr: string): YouTubeEmbedInfo {
 
     // /embed/VIDEO_ID
     if (url.pathname.includes('/embed/')) {
-      return { isYouTube: true, embedUrl: clean, isHome: false };
+      const vid = url.pathname.split('/embed/')[1]?.split(/[/?#]/)[0];
+      return { isYouTube: true, embedUrl: clean, isHome: false, videoId: vid };
     }
 
     // /playlist?list=ID
@@ -116,27 +115,26 @@ export function parseYouTubeEmbed(urlStr: string): YouTubeEmbedInfo {
       };
     }
 
-    // /results?search_query=QUERY
-    const q = url.searchParams.get('search_query');
-    if (q) {
-      return {
-        isYouTube: true,
-        embedUrl: `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(q)}`,
-        isHome: false,
-        query: q,
-      };
-    }
-
-    // Root homepage or channel or general YouTube landing page
+    // Root homepage or general landing page
     return {
       isYouTube: true,
-      embedUrl: `https://www.youtube-nocookie.com/embed?listType=search&list=trending`,
+      embedUrl: null,
       isHome: true,
     };
   } catch (e) {
     return { isYouTube: false, embedUrl: null, isHome: false };
   }
 }
+
+const EMBED_RESTRICTED_SITES = [
+  'facebook.com',
+  'twitter.com',
+  'x.com',
+  'instagram.com',
+  'netflix.com',
+  'linkedin.com',
+  'accounts.google.com'
+];
 
 export const EmbeddedBrowser: React.FC<Props> = ({
   initialUrl,
@@ -152,7 +150,10 @@ export const EmbeddedBrowser: React.FC<Props> = ({
   const [pageTitle, setPageTitle] = useState(initialTitle || initialUrl);
   const [isLoading, setIsLoading] = useState(true);
   const [loadTimeoutNotice, setLoadTimeoutNotice] = useState(false);
-  const [activeYtCategory, setActiveYtCategory] = useState('trending');
+
+  // In-App YouTube Hub Player State
+  const [activeYtVideoId, setActiveYtVideoId] = useState<string>('jfKfPfyJRdk');
+  const [ytCustomInput, setYtCustomInput] = useState<string>('');
 
   // View Modes: 'web' or 'reader'
   const [viewMode, setViewMode] = useState<'web' | 'reader'>('web');
@@ -165,13 +166,24 @@ export const EmbeddedBrowser: React.FC<Props> = ({
   const currentUrl = history[historyIndex] || initialUrl;
   const ytInfo = parseYouTubeEmbed(currentUrl);
 
+  let hostname = '';
+  try {
+    hostname = new URL(currentUrl).hostname;
+  } catch (e) {
+    hostname = currentUrl;
+  }
+
+  const isRestrictedNonYt = EMBED_RESTRICTED_SITES.some(
+    (domain) => hostname === domain || hostname.endsWith('.' + domain)
+  );
+
   // Sync address input when current URL changes
   useEffect(() => {
     setInputUrl(currentUrl);
     setIsLoading(true);
     setLoadTimeoutNotice(false);
 
-    // If a page takes longer than 3.5s to signal loaded, show fallback banner
+    // If a non-YouTube page takes longer than 3.5s, display helper notice
     const timer = setTimeout(() => {
       setLoadTimeoutNotice(true);
     }, 3500);
@@ -183,7 +195,7 @@ export const EmbeddedBrowser: React.FC<Props> = ({
     return () => clearTimeout(timer);
   }, [currentUrl]);
 
-  // Listen for navigation messages sent by the proxy bridge inside the iframe
+  // Listen for navigation messages sent by proxy bridge
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (!event.data) return;
@@ -249,7 +261,6 @@ export const EmbeddedBrowser: React.FC<Props> = ({
     }
   };
 
-  // Browser Navigation Actions
   const handleBack = () => {
     if (historyIndex > 0) {
       setHistoryIndex(historyIndex - 1);
@@ -285,7 +296,6 @@ export const EmbeddedBrowser: React.FC<Props> = ({
       if (target.includes('.') && !target.includes(' ')) {
         target = 'https://' + target;
       } else {
-        // Query search
         target = `https://www.google.com/search?q=${encodeURIComponent(target)}`;
       }
     }
@@ -300,24 +310,29 @@ export const EmbeddedBrowser: React.FC<Props> = ({
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const handleSelectYtCategory = (category: string) => {
-    setActiveYtCategory(category);
-    const target = `https://www.youtube.com/results?search_query=${encodeURIComponent(category)}`;
+  const handlePlayCustomYt = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = ytCustomInput.trim();
+    if (!query) return;
+
+    // Check if it's a URL
+    const parsed = parseYouTubeEmbed(query);
+    if (parsed.isYouTube && parsed.videoId) {
+      setActiveYtVideoId(parsed.videoId);
+      return;
+    }
+
+    // If a video ID was entered directly (11 characters)
+    if (/^[a-zA-Z0-9_-]{11}$/.test(query)) {
+      setActiveYtVideoId(query);
+      return;
+    }
+
+    // Otherwise navigate to search query
+    const target = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
     setHistory((prev) => [...prev.slice(0, historyIndex + 1), target]);
     setHistoryIndex((prev) => prev + 1);
   };
-
-  let hostname = '';
-  try {
-    hostname = new URL(currentUrl).hostname;
-  } catch (e) {
-    hostname = currentUrl;
-  }
-
-  // Determine iframe source: YouTube nocookie direct embed OR proxy
-  const iframeSrc = ytInfo.isYouTube && ytInfo.embedUrl
-    ? ytInfo.embedUrl
-    : `/api/proxy?url=${encodeURIComponent(currentUrl)}`;
 
   return (
     <div
@@ -431,109 +446,15 @@ export const EmbeddedBrowser: React.FC<Props> = ({
       </header>
 
       {/* Progress / Loading Bar */}
-      {isLoading && viewMode === 'web' && (
+      {isLoading && viewMode === 'web' && !ytInfo.isHome && !isRestrictedNonYt && (
         <div className="w-full h-0.5 bg-slate-200 dark:bg-slate-800 overflow-hidden">
           <div className="w-full h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-600 animate-pulse" />
         </div>
       )}
 
-      {/* Specialized YouTube Header Bar if viewing YouTube */}
-      {ytInfo.isYouTube && viewMode === 'web' && (
-        <div className="flex flex-wrap items-center justify-between px-3 py-1.5 bg-red-50/90 dark:bg-[#201014] border-b border-red-200/60 dark:border-red-950 text-xs gap-2">
-          <div className="flex items-center space-x-2">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-white bg-red-600 text-[11px] shadow-sm">
-              <Play className="w-3 h-3 fill-white mr-1" />
-              YouTube In-App Player
-            </span>
-            <span className="text-slate-600 dark:text-slate-300 hidden md:inline text-[11px]">
-              Playing video feed cleanly with zero blank screens.
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-1 overflow-x-auto py-0.5">
-            {[
-              { id: 'trending', label: 'Trending', icon: Flame },
-              { id: 'music', label: 'Music', icon: Music },
-              { id: 'gaming', label: 'Gaming', icon: Gamepad2 },
-              { id: 'news', label: 'News', icon: Tv },
-              { id: 'technology', label: 'Tech', icon: Radio },
-            ].map((cat) => {
-              const Icon = cat.icon;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => handleSelectYtCategory(cat.label)}
-                  className={`px-2 py-0.5 rounded-full text-[11px] flex items-center space-x-1 font-medium transition-colors cursor-pointer ${
-                    activeYtCategory === cat.label
-                      ? 'bg-red-600 text-white'
-                      : 'bg-white dark:bg-[#2a171c] text-slate-700 dark:text-slate-300 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200/40 dark:border-red-900/40'
-                  }`}
-                >
-                  <Icon className="w-2.5 h-2.5" />
-                  <span>{cat.label}</span>
-                </button>
-              );
-            })}
-
-            <a
-              href={currentUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-2 px-2.5 py-0.5 rounded-md text-[11px] font-bold text-white bg-red-600 hover:bg-red-700 transition-colors flex items-center space-x-1 shadow-sm"
-            >
-              <span>Open YouTube App ↗</span>
-            </a>
-          </div>
-        </div>
-      )}
-
-      {/* Helper Notification Banner if loading takes long or for external SPA apps */}
-      {loadTimeoutNotice && !ytInfo.isYouTube && viewMode === 'web' && (
-        <div className="flex items-center justify-between px-3 py-1.5 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200 animate-fadeIn">
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-            <span className="text-[11px]">
-              Taking longer to load? Some web applications restrict embedding or require login.
-            </span>
-          </div>
-          <a
-            href={currentUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-2.5 py-0.5 rounded-md font-semibold text-white bg-blue-600 hover:bg-blue-700 text-[11px] transition-colors flex items-center space-x-1 ml-2 flex-shrink-0"
-          >
-            <span>Open Directly in New Tab</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        </div>
-      )}
-
       {/* ----------------- BROWSER VIEWPORT ----------------- */}
       <div className="flex-1 relative overflow-hidden bg-white dark:bg-[#121216]">
-        {viewMode === 'web' ? (
-          /* Live Web View via Findra In-App Proxy or Official YouTube Embed */
-          <iframe
-            ref={iframeRef}
-            src={iframeSrc}
-            title={pageTitle}
-            onLoad={() => {
-              setIsLoading(false);
-              setLoadTimeoutNotice(false);
-            }}
-            onError={() => {
-              setIsLoading(false);
-              setLoadTimeoutNotice(true);
-            }}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            sandbox={
-              ytInfo.isYouTube
-                ? undefined // YouTube nocookie embed is an official cross-origin embed
-                : 'allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-presentation allow-modals'
-            }
-            className="w-full h-full border-none bg-white"
-          />
-        ) : (
+        {viewMode === 'reader' ? (
           /* Distraction-Free Reader Mode */
           <div className="w-full h-full overflow-y-auto px-6 sm:px-16 py-8 text-left bg-[#fcfcfd] dark:bg-[#141418]">
             {readerLoading ? (
@@ -545,7 +466,6 @@ export const EmbeddedBrowser: React.FC<Props> = ({
               </div>
             ) : readerData && readerData.paragraphs.length > 0 ? (
               <article className="max-w-3xl mx-auto">
-                {/* Reader Toolbar: Font Size Controls */}
                 <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
                   <div className="flex items-center space-x-3">
                     <span className="font-semibold text-slate-700 dark:text-slate-300">{readerData.domain}</span>
@@ -583,12 +503,10 @@ export const EmbeddedBrowser: React.FC<Props> = ({
                   </div>
                 </div>
 
-                {/* Article Title */}
                 <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight mb-6 leading-tight">
                   {readerData.title}
                 </h1>
 
-                {/* Article Paragraphs */}
                 <div
                   className={`space-y-5 text-slate-800 dark:text-slate-200 leading-relaxed ${
                     readerFontSize === 'sm'
@@ -631,6 +549,161 @@ export const EmbeddedBrowser: React.FC<Props> = ({
               </div>
             )}
           </div>
+        ) : ytInfo.isYouTube && ytInfo.isHome ? (
+          /* ================= FIRST-CLASS YOUTUBE VIDEO HUB ================= */
+          <div className="w-full h-full overflow-y-auto px-4 sm:px-10 py-6 bg-slate-900 text-white text-left">
+            <div className="max-w-4xl mx-auto">
+              {/* YouTube Platform Header Card */}
+              <div className="bg-gradient-to-r from-red-950/60 via-slate-800/80 to-slate-900 border border-red-900/40 rounded-2xl p-5 mb-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center space-x-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-600/30 flex-shrink-0">
+                    <Play className="w-6 h-6 fill-white text-white ml-0.5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h2 className="text-xl font-bold tracking-tight">YouTube</h2>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600/20 text-red-400 border border-red-500/30">
+                        Official Video Hub
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      YouTube's full desktop interface restricts cross-origin framing. Watch videos below or launch the full website!
+                    </p>
+                  </div>
+                </div>
+
+                <a
+                  href={currentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full md:w-auto px-5 py-2.5 rounded-xl font-bold text-sm bg-red-600 hover:bg-red-500 text-white transition-all shadow-lg shadow-red-600/30 flex items-center justify-center space-x-2 flex-shrink-0 cursor-pointer"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>Launch Official YouTube.com ↗</span>
+                </a>
+              </div>
+
+              {/* Working Embedded Video Player */}
+              <div className="bg-black rounded-2xl overflow-hidden border border-slate-800 shadow-2xl mb-6 aspect-video max-h-[500px]">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${activeYtVideoId}?autoplay=1&enablejsapi=1`}
+                  title="YouTube Player"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  className="w-full h-full border-none"
+                />
+              </div>
+
+              {/* In-App Video Selector & Quick Playlist */}
+              <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Curated Channels & Video Selector
+                  </span>
+                  <span className="text-xs text-slate-400">Click to play instantly</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                  {[
+                    { id: 'jfKfPfyJRdk', title: 'Lofi Chill Beats', category: 'Music', icon: Music },
+                    { id: 'kqtD5dpn9C8', title: 'Python Full Course', category: 'Coding', icon: Radio },
+                    { id: 'f9XyB85i-Wk', title: 'Web Development', category: 'Dev', icon: Tv },
+                    { id: '21X5lGlDOfg', title: 'Space Exploration', category: 'Science', icon: Flame },
+                  ].map((vid) => {
+                    const Icon = vid.icon;
+                    const isActive = activeYtVideoId === vid.id;
+                    return (
+                      <button
+                        key={vid.id}
+                        onClick={() => setActiveYtVideoId(vid.id)}
+                        className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-red-600/20 border-red-500 text-white font-semibold'
+                            : 'bg-slate-900/60 border-slate-700 hover:bg-slate-700/60 text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-1.5 mb-1">
+                          <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-red-400' : 'text-slate-400'}`} />
+                          <span className="text-[10px] text-slate-400 uppercase font-bold">{vid.category}</span>
+                        </div>
+                        <p className="text-xs truncate">{vid.title}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Video Search / Link Launcher */}
+                <form onSubmit={handlePlayCustomYt} className="flex gap-2">
+                  <div className="flex-1 flex items-center bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 focus-within:border-red-500">
+                    <Search className="w-3.5 h-3.5 text-slate-400 mr-2 flex-shrink-0" />
+                    <input
+                      type="text"
+                      value={ytCustomInput}
+                      onChange={(e) => setYtCustomInput(e.target.value)}
+                      placeholder="Paste any YouTube video link or enter video ID (e.g. dQw4w9WgXcQ)..."
+                      className="bg-transparent text-xs text-white focus:outline-none w-full"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-500 text-white transition-colors cursor-pointer flex-shrink-0"
+                  >
+                    Play Video
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        ) : ytInfo.isYouTube && ytInfo.embedUrl ? (
+          /* ================= EMBEDDED YOUTUBE VIDEO ================= */
+          <iframe
+            ref={iframeRef}
+            src={ytInfo.embedUrl}
+            title={pageTitle}
+            onLoad={() => setIsLoading(false)}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            className="w-full h-full border-none bg-black"
+          />
+        ) : isRestrictedNonYt ? (
+          /* ================= EMBED RESTRICTED WEB APP FALLBACK ================= */
+          <div className="w-full h-full flex items-center justify-center p-6 bg-slate-900 text-white">
+            <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-2xl p-6 text-center shadow-2xl">
+              <ShieldAlert className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+              <h2 className="text-xl font-bold mb-2">{hostname}</h2>
+              <p className="text-xs text-slate-300 leading-relaxed mb-6">
+                This web application blocks in-app iframe embedding due to security and authentication policies.
+              </p>
+              <a
+                href={currentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 px-4 rounded-xl font-semibold text-xs bg-blue-600 hover:bg-blue-500 text-white transition-colors flex items-center justify-center space-x-2"
+              >
+                <span>Open {hostname} in New Tab</span>
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+        ) : (
+          /* ================= LIVE WEB VIEW VIA FINDRA PROXY ================= */
+          <iframe
+            ref={iframeRef}
+            src={`/api/proxy?url=${encodeURIComponent(currentUrl)}`}
+            title={pageTitle}
+            onLoad={() => {
+              setIsLoading(false);
+              setLoadTimeoutNotice(false);
+            }}
+            onError={() => {
+              setIsLoading(false);
+              setLoadTimeoutNotice(true);
+            }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-presentation allow-modals"
+            className="w-full h-full border-none bg-white"
+          />
         )}
       </div>
 
