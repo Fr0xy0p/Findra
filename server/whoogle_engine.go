@@ -479,3 +479,4 @@ func fetchDynamicWikiKnowledgePanel(entity string) *KnowledgePanel {
 		Source:       "Knowledge Graph",
 	}
 }
+
