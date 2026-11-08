@@ -1,6 +1,7 @@
 // DOM Elements
 const tabStrip = document.getElementById('tab-strip');
 const btnNewTab = document.getElementById('btn-new-tab');
+const btnToolbarNewTab = document.getElementById('btn-toolbar-new-tab');
 const btnBack = document.getElementById('btn-back');
 const btnForward = document.getElementById('btn-forward');
 const btnReload = document.getElementById('btn-reload');
@@ -65,6 +66,12 @@ function renderTabs(tabList, activeId) {
       window.findraBrowser.switchTab(tab.id);
     };
 
+    // Right-click context menu (New Tab, Reload, Duplicate, Close)
+    tabEl.oncontextmenu = (e) => {
+      e.preventDefault();
+      window.findraBrowser.showTabContextMenu(tab.id);
+    };
+
     tabStrip.appendChild(tabEl);
   });
 }
@@ -78,13 +85,25 @@ function createFallbackFavicon(title) {
 
 // ---------------- NAVIGATION & CONTROLS ----------------
 btnNewTab.onclick = () => window.findraBrowser.newTab();
+if (btnToolbarNewTab) {
+  btnToolbarNewTab.onclick = () => window.findraBrowser.newTab();
+}
 btnBack.onclick = () => window.findraBrowser.goBack();
 btnForward.onclick = () => window.findraBrowser.goForward();
 btnReload.onclick = () => window.findraBrowser.reload();
 btnHome.onclick = () => window.findraBrowser.goHome();
 
-btnQuickYt.onclick = () => window.findraBrowser.newTab('https://www.youtube.com');
+// Navigate in the SAME tab!
+btnQuickYt.onclick = () => window.findraBrowser.navigate('https://www.youtube.com');
 btnSidepanel.onclick = () => window.findraBrowser.toggleSidePanel();
+
+// Global Cmd+T shortcut listener for immediate responsiveness
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 't') {
+    e.preventDefault();
+    window.findraBrowser.newTab();
+  }
+});
 
 // ---------------- OMNIBOX & SUGGESTIONS ----------------
 omniboxInput.addEventListener('keydown', (e) => {

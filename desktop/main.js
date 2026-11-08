@@ -148,6 +148,11 @@ function createTab(initialUrl = findraBaseUrl) {
     }
   });
 
+  const baseUa = view.webContents.getUserAgent();
+  if (!baseUa.includes('FindraNative')) {
+    view.webContents.setUserAgent(`${baseUa} FindraNative/1.0`);
+  }
+
   mainWindow.contentView.addChildView(view);
 
   const tab = {
@@ -197,9 +202,9 @@ function createTab(initialUrl = findraBaseUrl) {
     broadcastTabState();
   });
 
-  // Handle window.open (target="_blank") by creating a new in-app tab!
+  // Open target="_blank" links in the SAME tab!
   view.webContents.setWindowOpenHandler(({ url }) => {
-    createTab(url);
+    view.webContents.loadURL(url);
     return { action: 'deny' };
   });
 
@@ -425,6 +430,54 @@ function createWindow() {
   ipcMain.on('browser:newTab', (_e, url) => createTab(url || findraBaseUrl));
   ipcMain.on('browser:switchTab', (_e, id) => switchTab(id));
   ipcMain.on('browser:closeTab', (_e, id) => closeTab(id));
+  ipcMain.on('browser:duplicateTab', (_e, id) => {
+    const tab = tabs.get(id);
+    if (tab) createTab(tab.url);
+  });
+  ipcMain.on('browser:closeOtherTabs', (_e, id) => {
+    for (const [tabId] of tabs.entries()) {
+      if (tabId !== id) closeTab(tabId);
+    }
+  });
+  ipcMain.on('browser:showTabContextMenu', (_e, { tabId }) => {
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: 'New Tab',
+        accelerator: 'CmdOrCtrl+T',
+        click: () => createTab(findraBaseUrl)
+      },
+      {
+        label: 'Reload',
+        accelerator: 'CmdOrCtrl+R',
+        click: () => {
+          const tab = tabs.get(tabId);
+          if (tab) tab.view.webContents.reload();
+        }
+      },
+      {
+        label: 'Duplicate Tab',
+        click: () => {
+          const tab = tabs.get(tabId);
+          if (tab) createTab(tab.url);
+        }
+      },
+      { type: 'separator' },
+      {
+        label: 'Close Tab',
+        accelerator: 'CmdOrCtrl+W',
+        click: () => closeTab(tabId)
+      },
+      {
+        label: 'Close Other Tabs',
+        click: () => {
+          for (const [id] of tabs.entries()) {
+            if (id !== tabId) closeTab(id);
+          }
+        }
+      }
+    ]);
+    contextMenu.popup({ window: mainWindow });
+  });
   ipcMain.on('browser:navigate', (_e, url) => navigateActiveTab(url));
   ipcMain.on('browser:goBack', () => {
     const tab = tabs.get(activeTabId);

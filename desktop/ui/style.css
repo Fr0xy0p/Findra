@@ -151,19 +151,39 @@ body {
   border: none;
   background: transparent;
   color: #94a3b8;
-  font-size: 18px;
-  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   margin-left: 4px;
-  transition: all 0.1s;
+  transition: all 0.15s ease;
 }
 
 #btn-new-tab:hover {
   background: #2a2a38;
-  color: white;
+  color: #38bdf8;
+}
+
+.action-btn-newtab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid #333344;
+  background: #1e1e28;
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.action-btn-newtab:hover {
+  background: #28283a;
+  border-color: #38bdf8;
+  color: #38bdf8;
 }
 
 /* ---------------- NAVIGATION TOOLBAR ROW ---------------- */

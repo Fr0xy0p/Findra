@@ -83,12 +83,10 @@ export const KnowledgeCard: React.FC<Props> = ({
             <div className="flex items-center gap-1.5 w-full">
               <a
                 href={panel.website}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="flex-1 flex items-center justify-center py-2 px-3 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors cursor-pointer shadow-sm"
               >
                 <Globe className="w-3.5 h-3.5 mr-1.5" />
-                <span>Visit Official Website ↗</span>
+                <span>Visit Official Website</span>
               </a>
               {onOpenInBrowser && (
                 <button
@@ -108,6 +106,9 @@ export const KnowledgeCard: React.FC<Props> = ({
               <a
                 href={panel.wikipedia_url}
                 onClick={(e) => {
+                  if (typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron')) {
+                    return; // Navigate in the SAME tab!
+                  }
                   if (onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
                     e.preventDefault();
                     onOpenInBrowser(panel.wikipedia_url!, panel.title + ' (Wikipedia)');
@@ -120,9 +121,7 @@ export const KnowledgeCard: React.FC<Props> = ({
               </a>
               <a
                 href={panel.wikipedia_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Open Wikipedia in external browser tab"
+                title="Open Wikipedia"
                 className="p-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center justify-center"
               >
                 <ExternalLink className="w-3.5 h-3.5" />

@@ -47,10 +47,16 @@ export const App: React.FC = () => {
   const [isCrawlModalOpen, setIsCrawlModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'tech' | 'docs' | 'news'>(initialUrlState.tab);
 
-  // In-App Browser State
+  // Check if running inside Findra Desktop App / Electron
+  const isDesktopApp = typeof navigator !== 'undefined' && (
+    navigator.userAgent.includes('Electron') ||
+    navigator.userAgent.includes('Findra')
+  );
+
+  // In-App Browser State (disabled by default in native desktop app so sites navigate in the same tab)
   const [inAppBrowserUrl, setInAppBrowserUrl] = useState<string | null>(null);
   const [inAppBrowserTitle, setInAppBrowserTitle] = useState<string | null>(null);
-  const [inAppBrowserEnabled, setInAppBrowserEnabled] = useState(true);
+  const [inAppBrowserEnabled, setInAppBrowserEnabled] = useState(!isDesktopApp);
   const [isSplitView, setIsSplitView] = useState(false);
 
   const openInBrowser = (url: string, title?: string) => {
@@ -331,23 +337,25 @@ export const App: React.FC = () => {
 
               {/* Action Buttons */}
               <div className="flex items-center space-x-2.5 self-end sm:self-auto">
-                <button
-                  onClick={() => setInAppBrowserEnabled(!inAppBrowserEnabled)}
-                  title={
-                    inAppBrowserEnabled
-                      ? 'In-App Browser is ON: sites open directly inside Findra'
-                      : 'In-App Browser is OFF: sites open in external browser tabs'
-                  }
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
-                    inAppBrowserEnabled
-                      ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-                      : 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 border-slate-200 dark:border-slate-700'
-                  }`}
-                >
-                  <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span className="hidden md:inline">In-App Browser:</span>
-                  <span className="font-bold">{inAppBrowserEnabled ? 'ON' : 'OFF'}</span>
-                </button>
+                {!isDesktopApp && (
+                  <button
+                    onClick={() => setInAppBrowserEnabled(!inAppBrowserEnabled)}
+                    title={
+                      inAppBrowserEnabled
+                        ? 'In-App Browser is ON: sites open directly inside Findra'
+                        : 'In-App Browser is OFF: sites open in external browser tabs'
+                    }
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
+                      inAppBrowserEnabled
+                        ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                        : 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span className="hidden md:inline">In-App Browser:</span>
+                    <span className="font-bold">{inAppBrowserEnabled ? 'ON' : 'OFF'}</span>
+                  </button>
+                )}
 
                 <button
                   onClick={() => setIsCrawlModalOpen(true)}

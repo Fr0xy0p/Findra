@@ -67,28 +67,10 @@ export const SearchResultItem: React.FC<Props> = ({
     result.title.toLowerCase().includes('official site')
   );
 
-  const isEmbedRestricted = (urlStr: string): boolean => {
-    try {
-      const host = new URL(urlStr).hostname.toLowerCase();
-      const restricted = [
-        'youtube.com',
-        'youtu.be',
-        'google.com',
-        'facebook.com',
-        'twitter.com',
-        'x.com',
-        'instagram.com',
-        'linkedin.com',
-        'netflix.com',
-        'accounts.google.com',
-      ];
-      return restricted.some((d) => host === d || host.endsWith('.' + d));
-    } catch (e) {
-      return false;
-    }
-  };
-
-  const shouldOpenInNewTab = isEmbedRestricted(result.url) || !inAppBrowserEnabled;
+  const isDesktop = typeof navigator !== 'undefined' && (
+    navigator.userAgent.includes('Electron') ||
+    navigator.userAgent.includes('Findra')
+  );
 
   return (
     <article className="group mb-7 max-w-2xl text-left">
@@ -112,14 +94,12 @@ export const SearchResultItem: React.FC<Props> = ({
         <h2 className="text-xl font-normal leading-normal">
           <a
             href={result.url}
-            target={shouldOpenInNewTab ? '_blank' : undefined}
-            rel={shouldOpenInNewTab ? 'noopener noreferrer' : undefined}
             onClick={(e) => {
-              if (shouldOpenInNewTab) {
-                // Let browser open native tab directly
+              // In native desktop browser or when inAppBrowser is off, navigate in the SAME tab!
+              if (isDesktop || !inAppBrowserEnabled) {
                 return;
               }
-              if (inAppBrowserEnabled && onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
+              if (onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
                 e.preventDefault();
                 onOpenInBrowser(result.url, result.title);
               }
@@ -130,29 +110,29 @@ export const SearchResultItem: React.FC<Props> = ({
           </a>
         </h2>
 
-        {/* Quick Action Buttons */}
-        <div className="flex items-center space-x-1.5 flex-shrink-0 pt-1">
-          {onOpenInBrowser && (
-            <button
-              onClick={() => onOpenInBrowser(result.url, result.title)}
-              title="Open inside Findra Browser"
-              className="px-2 py-0.5 rounded-md text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 transition-colors flex items-center space-x-1 cursor-pointer"
+        {/* Quick Action Buttons (only shown in web mode when iframe sandbox is enabled) */}
+        {!isDesktop && (
+          <div className="flex items-center space-x-1.5 flex-shrink-0 pt-1">
+            {onOpenInBrowser && inAppBrowserEnabled && (
+              <button
+                onClick={() => onOpenInBrowser(result.url, result.title)}
+                title="Preview inside Findra Sandbox"
+                className="px-2 py-0.5 rounded-md text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 transition-colors flex items-center space-x-1 cursor-pointer"
+              >
+                <Globe className="w-3 h-3" />
+                <span className="hidden sm:inline">Open in Findra</span>
+              </button>
+            )}
+            <a
+              href={result.url}
+              title="Open site"
+              className="px-2 py-0.5 rounded-md text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors flex items-center space-x-1"
             >
-              <Globe className="w-3 h-3" />
-              <span className="hidden sm:inline">Open in Findra</span>
-            </button>
-          )}
-          <a
-            href={result.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Open directly in external browser tab"
-            className="px-2 py-0.5 rounded-md text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors flex items-center space-x-1"
-          >
-            <ExternalLink className="w-3 h-3" />
-            <span className="hidden sm:inline">Open in Tab</span>
-          </a>
-        </div>
+              <ExternalLink className="w-3 h-3" />
+              <span className="hidden sm:inline">Open</span>
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Snippet with Term Highlighting */}

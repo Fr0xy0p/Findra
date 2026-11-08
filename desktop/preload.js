@@ -12,6 +12,9 @@ contextBridge.exposeInMainWorld('findraBrowser', {
   newTab: (url) => ipcRenderer.send('browser:newTab', url),
   switchTab: (id) => ipcRenderer.send('browser:switchTab', id),
   closeTab: (id) => ipcRenderer.send('browser:closeTab', id),
+  duplicateTab: (id) => ipcRenderer.send('browser:duplicateTab', id),
+  closeOtherTabs: (id) => ipcRenderer.send('browser:closeOtherTabs', id),
+  showTabContextMenu: (tabId) => ipcRenderer.send('browser:showTabContextMenu', { tabId }),
 
   // Features
   toggleSidePanel: () => ipcRenderer.send('browser:toggleSidePanel'),

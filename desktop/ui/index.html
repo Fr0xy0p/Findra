@@ -12,7 +12,9 @@
     <div id="tab-bar-container">
       <div id="traffic-light-spacer"></div>
       <div id="tab-strip"></div>
-      <button id="btn-new-tab" title="New Tab (Cmd+T)">+</button>
+      <button id="btn-new-tab" class="new-tab-btn" title="New Tab (Cmd+T)">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
     </div>
 
     <!-- ROW 2: NAVIGATION TOOLBAR -->
@@ -51,9 +53,13 @@
         <div id="suggestions-menu" class="hidden"></div>
       </div>
 
-      <!-- Action cluster: Quick Shortcuts & Findra AI Sidebar -->
+      <!-- Action cluster: Quick Shortcuts, New Tab & Findra AI Sidebar -->
       <div class="action-cluster">
-        <button id="btn-quick-yt" class="quick-btn" title="Open YouTube">
+        <button id="btn-toolbar-new-tab" class="action-btn-newtab" title="Open New Tab (Cmd+T)">
+          <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>New Tab</span>
+        </button>
+        <button id="btn-quick-yt" class="quick-btn" title="Open YouTube in this tab">
           <span class="yt-badge">▶</span>
           <span>YouTube</span>
         </button>
