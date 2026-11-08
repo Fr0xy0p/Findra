@@ -218,3 +218,4 @@ window.findraBrowser.onFocusOmnibox(() => {
   omniboxInput.focus();
   omniboxInput.select();
 });
+

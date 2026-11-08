@@ -28,3 +28,4 @@ contextBridge.exposeInMainWorld('findraBrowser', {
     ipcRenderer.on('shortcut:focusOmnibox', () => callback());
   }
 });
+

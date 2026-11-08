@@ -1,6 +1,8 @@
 const { app, BrowserWindow, WebContentsView, Menu, ipcMain } = require('electron');
 const path = require('path');
 const http = require('http');
+const fs = require('fs');
+const { spawn } = require('child_process');
 
 let mainWindow = null;
 let sidePanelView = null;
@@ -28,6 +30,17 @@ function checkFindraEndpoint() {
   });
   req.on('error', () => {
     findraBaseUrl = LIVE_FINDRA_URL;
+    const startScript = '/Users/yuraj/Search-engine/start.sh';
+    if (fs.existsSync(startScript)) {
+      try {
+        const p = spawn('/bin/bash', [startScript], {
+          detached: true,
+          stdio: 'ignore',
+          cwd: '/Users/yuraj/Search-engine'
+        });
+        p.unref();
+      } catch (err) {}
+    }
   });
   req.setTimeout(800, () => {
     req.destroy();
