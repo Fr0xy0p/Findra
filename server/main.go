@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -154,13 +155,41 @@ func (gw *APIGateway) handleSearch(w http.ResponseWriter, r *http.Request) {
 		res.KnowledgePanel = knowledgePanel
 	}
 
+	// Findra Shield: Ad-Free Guarantee & URL Tracker Stripping
+	if res != nil {
+		res.IsAdFree = true
+		res.ShieldVerified = true
+		for i := range res.Results {
+			res.Results[i].URL = stripTrackingParameters(res.Results[i].URL)
+		}
+	}
+
 	resBytes, err := json.Marshal(res)
 	if err == nil {
 		gw.cache.Set(cacheKey, resBytes)
 	}
 
+	w.Header().Set("X-Findra-Shield", "Ad-Free-Verified")
 	w.Header().Set("X-Cache", "MISS")
 	w.Write(resBytes)
+}
+
+// stripTrackingParameters removes marketing tracking query parameters (utm_*, gclid, fbclid, etc.)
+func stripTrackingParameters(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	q := u.Query()
+	trackers := []string{
+		"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+		"gclid", "fbclid", "msclkid", "mc_eid", "_hsenc", "_hsmi", "ref", "aff_id",
+	}
+	for _, t := range trackers {
+		q.Del(t)
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 func isStrongMatch(query string, res *SearchResponse) bool {

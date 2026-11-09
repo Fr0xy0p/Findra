@@ -1,8 +1,15 @@
-const { app, BrowserWindow, WebContentsView, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, ipcMain, session } = require('electron');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const { ElectronBlocker, fullLists } = require('@ghostery/adblocker-electron');
+const fetch = require('cross-fetch');
+
+// Findra Shield Ad & Tracker Blocker Engine State
+let adBlocker = null;
+let isShieldEnabled = true;
+let totalBlockedAds = 0;
 
 // Enable native trackpad swipe history navigation gestures (macOS two-finger swipe)
 app.commandLine.appendSwitch('enable-features', 'TouchpadOverscrollHistoryNavigation');
@@ -632,6 +639,50 @@ function createWindow() {
     return findraBaseUrl;
   });
 
+  // Shield (AdBlock) IPC handlers
+  ipcMain.handle('shield:getStatus', () => {
+    return {
+      enabled: isShieldEnabled,
+      blockedCount: totalBlockedAds,
+    };
+  });
+
+  ipcMain.handle('shield:toggle', (_e, enabled) => {
+    isShieldEnabled = !!enabled;
+    userConfig.shieldEnabled = isShieldEnabled;
+    saveConfig(userConfig);
+
+    if (adBlocker) {
+      try {
+        if (isShieldEnabled) {
+          if (!adBlocker.isBlockingEnabled(session.defaultSession)) {
+            adBlocker.enableBlockingInSession(session.defaultSession);
+            console.log('🛡️ [Findra Shield] AdBlock turned ON');
+          }
+        } else {
+          if (adBlocker.isBlockingEnabled(session.defaultSession)) {
+            adBlocker.disableBlockingInSession(session.defaultSession);
+            console.log('🛡️ [Findra Shield] AdBlock turned OFF');
+          }
+        }
+      } catch (e) {
+        console.error('[-] Error toggling shield:', e);
+      }
+    }
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('shield:stats', {
+        totalBlocked: totalBlockedAds,
+        enabled: isShieldEnabled,
+      });
+    }
+
+    return {
+      enabled: isShieldEnabled,
+      blockedCount: totalBlockedAds,
+    };
+  });
+
   // Create initial tab once UI finishes loading
   mainWindow.webContents.once('did-finish-load', () => {
     createTab(findraBaseUrl);
@@ -640,7 +691,54 @@ function createWindow() {
   setupApplicationMenu();
 }
 
+async function setupAdBlocker() {
+  try {
+    userConfig = loadConfig();
+    if (typeof userConfig.shieldEnabled === 'boolean') {
+      isShieldEnabled = userConfig.shieldEnabled;
+    }
+
+    let cachePath = '';
+    try {
+      cachePath = path.join(app.getPath('userData'), 'findra-adblocker-cache.bin');
+    } catch (e) {
+      cachePath = path.join(__dirname, 'findra-adblocker-cache.bin');
+    }
+
+    const caching = {
+      path: cachePath,
+      read: fs.promises.readFile,
+      write: fs.promises.writeFile,
+    };
+
+    console.log('🛡️ [Findra Shield] Initializing Ghostery & EasyList adblock engine...');
+    adBlocker = await ElectronBlocker.fromLists(fetch, fullLists, {
+      loadNetworkFilters: true,
+      loadCosmeticFilters: false,
+    }, caching);
+
+    if (isShieldEnabled) {
+      adBlocker.enableBlockingInSession(session.defaultSession);
+      console.log('🛡️ [Findra Shield] AdBlock successfully active on default session!');
+    }
+
+    adBlocker.on('request-blocked', (request) => {
+      totalBlockedAds++;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('shield:stats', {
+          totalBlocked: totalBlockedAds,
+          enabled: isShieldEnabled,
+          url: request.url,
+        });
+      }
+    });
+  } catch (err) {
+    console.error('[-] Error setting up Findra Shield:', err);
+  }
+}
+
 app.whenReady().then(() => {
+  setupAdBlocker();
   createWindow();
 
   app.on('activate', () => {

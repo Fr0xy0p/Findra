@@ -65,6 +65,14 @@ cp "$DIR/desktop/preload.js" "$APP_RES_DIR/"
 cp "$DIR/desktop/tab-preload.js" "$APP_RES_DIR/"
 cp -R "$DIR/desktop/ui" "$APP_RES_DIR/"
 
+# Copy production adblocker dependencies
+mkdir -p "$APP_RES_DIR/node_modules"
+cp -R "$DIR/desktop/node_modules/@ghostery" "$APP_RES_DIR/node_modules/" 2>/dev/null || true
+cp -R "$DIR/desktop/node_modules/@remusao" "$APP_RES_DIR/node_modules/" 2>/dev/null || true
+cp -R "$DIR/desktop/node_modules/cross-fetch" "$APP_RES_DIR/node_modules/" 2>/dev/null || true
+cp -R "$DIR/desktop/node_modules/tldts-experimental" "$APP_RES_DIR/node_modules/" 2>/dev/null || true
+cp -R "$DIR/desktop/node_modules/tldts-core" "$APP_RES_DIR/node_modules/" 2>/dev/null || true
+
 echo "[4/5] Ad-hoc signing app bundle with macOS codesign..."
 codesign --force --deep --sign - "$TARGET_APP"
 

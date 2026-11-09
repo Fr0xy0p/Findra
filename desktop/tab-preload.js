@@ -5,6 +5,39 @@ try {
   contextBridge.exposeInMainWorld('isFindraNativeApp', true);
 } catch (e) {}
 
+// Findra Shield: Cosmetic Ad-Element Hiding
+// Collapses ad frames, banner placeholders, and sponsored widgets so pages render cleanly
+const COSMETIC_AD_FILTER_CSS = `
+  .adsbygoogle, [id^="google_ads_"], [id^="aswift_"], [id*="-ad-"],
+  .ad-container, .ad-banner, .advertisement, .ad-wrapper, .ad_unit,
+  .sponsored-post, [data-ad-unit], [data-ad-slot], [data-ad-client],
+  div[class*="sponsored"], .outbrain_widget, .taboola-container,
+  #ytd-player .ytp-ad-module, .video-ads, .ytp-ad-overlay-container,
+  .ad-showing, .ad-interrupting {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+`;
+
+function injectCosmeticShield() {
+  if (document.getElementById('findra-shield-cosmetics')) return;
+  const style = document.createElement('style');
+  style.id = 'findra-shield-cosmetics';
+  style.textContent = COSMETIC_AD_FILTER_CSS;
+  (document.head || document.documentElement).appendChild(style);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', injectCosmeticShield);
+} else {
+  injectCosmeticShield();
+}
+
 // Two-finger trackpad horizontal swipe detection for macOS / Windows
 let accumulatedDeltaX = 0;
 let gestureCooldown = false;

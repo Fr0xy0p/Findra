@@ -308,3 +308,75 @@ window.findraBrowser.onFocusOmnibox(() => {
   omniboxInput.select();
 });
 
+// ---------------- FINDRA SHIELD (ADBLOCK) CONTROLS ----------------
+const btnShield = document.getElementById('btn-shield');
+const shieldPopover = document.getElementById('shield-popover');
+const shieldBadge = document.getElementById('shield-badge');
+const shieldToggleInput = document.getElementById('shield-toggle-input');
+const shieldStatusText = document.getElementById('shield-status-text');
+const shieldIconBadge = document.getElementById('shield-icon-badge');
+const shieldStatBlocked = document.getElementById('shield-stat-blocked');
+
+let shieldBlockedCount = 0;
+let isShieldActive = true;
+
+// Initialize Shield Status from main process
+if (window.findraBrowser && window.findraBrowser.getShieldStatus) {
+  window.findraBrowser.getShieldStatus().then((status) => {
+    if (status) {
+      updateShieldUI(status.enabled, status.blockedCount);
+    }
+  });
+
+  window.findraBrowser.onShieldStats((stats) => {
+    if (stats) {
+      updateShieldUI(stats.enabled, stats.totalBlocked);
+    }
+  });
+}
+
+function updateShieldUI(enabled, count) {
+  isShieldActive = !!enabled;
+  shieldBlockedCount = count || 0;
+
+  if (shieldBadge) shieldBadge.textContent = shieldBlockedCount;
+  if (shieldStatBlocked) shieldStatBlocked.textContent = shieldBlockedCount;
+  if (shieldToggleInput) shieldToggleInput.checked = isShieldActive;
+
+  if (btnShield) {
+    btnShield.classList.toggle('shield-disabled', !isShieldActive);
+  }
+  if (shieldIconBadge) {
+    shieldIconBadge.classList.toggle('disabled', !isShieldActive);
+  }
+  if (shieldStatusText) {
+    shieldStatusText.textContent = isShieldActive
+      ? 'Ad & Tracker Blocking Active'
+      : 'Findra Shield is Paused';
+    shieldStatusText.classList.toggle('disabled', !isShieldActive);
+  }
+}
+
+if (btnShield && shieldPopover) {
+  btnShield.addEventListener('click', (e) => {
+    e.stopPropagation();
+    shieldPopover.classList.toggle('hidden');
+  });
+
+  shieldToggleInput.addEventListener('change', async (e) => {
+    const newState = e.target.checked;
+    if (window.findraBrowser && window.findraBrowser.toggleShield) {
+      const updated = await window.findraBrowser.toggleShield(newState);
+      updateShieldUI(updated.enabled, updated.blockedCount);
+    }
+  });
+
+  // Close popover on outside click
+  document.addEventListener('click', (e) => {
+    if (!shieldPopover.contains(e.target) && !btnShield.contains(e.target)) {
+      shieldPopover.classList.add('hidden');
+    }
+  });
+}
+
+

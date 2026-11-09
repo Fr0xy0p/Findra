@@ -49,6 +49,8 @@ type SearchResponse struct {
 	Results          []SearchResultItem `json:"results"`
 	IsLiveDiscovered bool               `json:"is_live_discovered,omitempty"`
 	SourceNotice     string             `json:"source_notice,omitempty"`
+	IsAdFree         bool               `json:"is_ad_free,omitempty"`
+	ShieldVerified   bool               `json:"shield_verified,omitempty"`
 }
 
 type IndexClient struct {

@@ -22,6 +22,13 @@ contextBridge.exposeInMainWorld('findraBrowser', {
   toggleSidePanel: () => ipcRenderer.send('browser:toggleSidePanel'),
   fetchSuggestions: (query) => ipcRenderer.invoke('browser:fetchSuggestions', query),
 
+  // Findra Shield (Ad & Tracker Blocker)
+  getShieldStatus: () => ipcRenderer.invoke('shield:getStatus'),
+  toggleShield: (enabled) => ipcRenderer.invoke('shield:toggle', enabled),
+  onShieldStats: (callback) => {
+    ipcRenderer.on('shield:stats', (_event, data) => callback(data));
+  },
+
   // Cloud URL Configuration (No localhost required!)
   getCloudUrl: () => ipcRenderer.invoke('browser:getCloudUrl'),
   setCloudUrl: (url) => ipcRenderer.invoke('browser:setCloudUrl', url),
