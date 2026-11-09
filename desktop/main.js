@@ -4,7 +4,6 @@ const http = require('http');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const { ElectronBlocker, fullLists } = require('@ghostery/adblocker-electron');
-const fetch = require('cross-fetch');
 
 // Findra Shield Ad & Tracker Blocker Engine State
 let adBlocker = null;
