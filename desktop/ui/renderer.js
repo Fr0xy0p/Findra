@@ -8,6 +8,7 @@ const btnReload = document.getElementById('btn-reload');
 const btnHome = document.getElementById('btn-home');
 const omniboxInput = document.getElementById('omnibox-input');
 const suggestionsMenu = document.getElementById('suggestions-menu');
+const btnQuickGoogle = document.getElementById('btn-quick-google');
 const btnQuickYt = document.getElementById('btn-quick-yt');
 const btnSidepanel = document.getElementById('btn-sidepanel');
 
@@ -105,6 +106,9 @@ btnReload.onclick = () => window.findraBrowser.reload();
 btnHome.onclick = () => window.findraBrowser.goHome();
 
 // Navigate in the SAME tab!
+if (btnQuickGoogle) {
+  btnQuickGoogle.onclick = () => window.findraBrowser.navigate('https://accounts.google.com/');
+}
 btnQuickYt.onclick = () => window.findraBrowser.navigate('https://www.youtube.com');
 btnSidepanel.onclick = () => window.findraBrowser.toggleSidePanel();
 

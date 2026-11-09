@@ -5,14 +5,69 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const { ElectronBlocker, fullLists } = require('@ghostery/adblocker-electron');
 
+// Enable native trackpad swipe history navigation gestures (macOS two-finger swipe)
+app.commandLine.appendSwitch('enable-features', 'TouchpadOverscrollHistoryNavigation');
+app.commandLine.appendSwitch('overscroll-history-navigation', '1');
+
+// Enable modern web authentication, credentials and cross-site cookie persistence (for Google Sign-In)
+app.commandLine.appendSwitch('disable-features', 'SameSiteByDefaultCookies,CookiesWithoutSameSiteMustBeSecure');
+
 // Findra Shield Ad & Tracker Blocker Engine State
 let adBlocker = null;
 let isShieldEnabled = true;
 let totalBlockedAds = 0;
 
-// Enable native trackpad swipe history navigation gestures (macOS two-finger swipe)
-app.commandLine.appendSwitch('enable-features', 'TouchpadOverscrollHistoryNavigation');
-app.commandLine.appendSwitch('overscroll-history-navigation', '1');
+// Standard Chrome User Agent Generation (Matches Chrome/Brave exactly to prevent Google blocking sign-in)
+const CHROME_VERSION = '133.0.0.0';
+
+function getCleanChromeUA() {
+  if (process.platform === 'darwin') {
+    return `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_VERSION} Safari/537.36`;
+  } else if (process.platform === 'win32') {
+    return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_VERSION} Safari/537.36`;
+  }
+  return `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_VERSION} Safari/537.36`;
+}
+
+function getMainSession() {
+  return session.fromPartition('persist:findra-main');
+}
+
+let cookieFlushDebounce = null;
+
+function setupSessionPersistenceAndAuth() {
+  const mainSes = getMainSession();
+  const cleanUA = getCleanChromeUA();
+
+  // Set the standard Chrome User Agent globally on the session
+  mainSes.setUserAgent(cleanUA);
+
+  // Set pristine Chrome Client Hints and Headers for Google Accounts
+  mainSes.webRequest.onBeforeSendHeaders((details, callback) => {
+    const url = details.url || '';
+    const headers = { ...details.requestHeaders };
+
+    // Standard Chrome UA
+    headers['User-Agent'] = cleanUA;
+
+    // For Google authentication and OAuth domains
+    if (url.includes('google.com') || url.includes('googleapis.com') || url.includes('gstatic.com') || url.includes('youtube.com')) {
+      headers['Sec-CH-UA'] = '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"';
+      headers['Sec-CH-UA-Mobile'] = '?0';
+      headers['Sec-CH-UA-Platform'] = process.platform === 'darwin' ? '"macOS"' : (process.platform === 'win32' ? '"Windows"' : '"Linux"');
+    }
+
+    callback({ requestHeaders: headers });
+  });
+
+  // Automatically flush cookies to SQLite disk storage when changed so logins are permanently remembered
+  mainSes.cookies.on('changed', () => {
+    clearTimeout(cookieFlushDebounce);
+    cookieFlushDebounce = setTimeout(() => {
+      mainSes.cookies.flushStore().catch(() => {});
+    }, 1000);
+  });
+}
 
 let mainWindow = null;
 let sidePanelView = null;
@@ -170,10 +225,8 @@ function createTab(initialUrl = findraBaseUrl) {
     }
   });
 
-  const baseUa = view.webContents.getUserAgent();
-  if (!baseUa.includes('FindraNative')) {
-    view.webContents.setUserAgent(`${baseUa} FindraNative/1.0`);
-  }
+  // Use clean standard Google Chrome User-Agent to ensure seamless Google Account login
+  view.webContents.setUserAgent(getCleanChromeUA());
 
   mainWindow.contentView.addChildView(view);
 
@@ -224,8 +277,41 @@ function createTab(initialUrl = findraBaseUrl) {
     broadcastTabState();
   });
 
-  // Open target="_blank" links in the SAME tab!
-  view.webContents.setWindowOpenHandler(({ url }) => {
+  // Handle popup windows and OAuth sign-in flows (Google, Apple, Microsoft, GitHub, etc.)
+  view.webContents.setWindowOpenHandler(({ url, disposition, features }) => {
+    const isAuth = url.includes('accounts.google.com') ||
+                   url.includes('/oauth') ||
+                   url.includes('/auth') ||
+                   url.includes('login.live.com') ||
+                   url.includes('appleid.apple.com') ||
+                   url.includes('github.com/login') ||
+                   url.includes('facebook.com/v') ||
+                   url.includes('signin') ||
+                   (features && (features.includes('width=') || features.includes('height=')));
+
+    // Allow dedicated popup window for OAuth authentication so window.opener and tokens work!
+    if (isAuth || disposition === 'new-window') {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 520,
+          height: 680,
+          center: true,
+          title: 'Sign In',
+          autoHideMenuBar: true,
+          webPreferences: {
+            partition: 'persist:findra-main',
+            contextIsolation: true,
+            nodeIntegration: false,
+            webSecurity: true,
+            preload: path.join(__dirname, 'tab-preload.js'),
+            userAgent: getCleanChromeUA()
+          }
+        }
+      };
+    }
+
+    // Normal link target="_blank" navigates in the current tab
     view.webContents.loadURL(url);
     return { action: 'deny' };
   });
@@ -653,16 +739,23 @@ function createWindow() {
 
     if (adBlocker) {
       try {
+        const mainSes = getMainSession();
         if (isShieldEnabled) {
           if (!adBlocker.isBlockingEnabled(session.defaultSession)) {
             adBlocker.enableBlockingInSession(session.defaultSession);
-            console.log('🛡️ [Findra Shield] AdBlock turned ON');
           }
+          if (!adBlocker.isBlockingEnabled(mainSes)) {
+            adBlocker.enableBlockingInSession(mainSes);
+          }
+          console.log('🛡️ [Findra Shield] AdBlock turned ON');
         } else {
           if (adBlocker.isBlockingEnabled(session.defaultSession)) {
             adBlocker.disableBlockingInSession(session.defaultSession);
-            console.log('🛡️ [Findra Shield] AdBlock turned OFF');
           }
+          if (adBlocker.isBlockingEnabled(mainSes)) {
+            adBlocker.disableBlockingInSession(mainSes);
+          }
+          console.log('🛡️ [Findra Shield] AdBlock turned OFF');
         }
       } catch (e) {
         console.error('[-] Error toggling shield:', e);
@@ -718,7 +811,11 @@ async function setupAdBlocker() {
 
     if (isShieldEnabled) {
       adBlocker.enableBlockingInSession(session.defaultSession);
-      console.log('🛡️ [Findra Shield] AdBlock successfully active on default session!');
+      const mainSes = getMainSession();
+      if (!adBlocker.isBlockingEnabled(mainSes)) {
+        adBlocker.enableBlockingInSession(mainSes);
+      }
+      console.log('🛡️ [Findra Shield] AdBlock successfully active on main persistent session!');
     }
 
     adBlocker.on('request-blocked', (request) => {
@@ -737,12 +834,20 @@ async function setupAdBlocker() {
 }
 
 app.whenReady().then(() => {
+  setupSessionPersistenceAndAuth();
   setupAdBlocker();
   createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+app.on('before-quit', async () => {
+  try {
+    await getMainSession().cookies.flushStore();
+    console.log('🔒 [Findra Session] Cookies successfully flushed to disk.');
+  } catch (e) {}
 });
 
 app.on('window-all-closed', () => {

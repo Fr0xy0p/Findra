@@ -340,6 +340,17 @@ body {
   font-size: 12px;
 }
 
+.google-badge {
+  color: #4285f4;
+  font-weight: 800;
+  font-size: 13px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+#btn-quick-google:hover {
+  border-color: #4285f4;
+}
+
 .action-btn {
   display: flex;
   align-items: center;
