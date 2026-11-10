@@ -25,8 +25,8 @@ import urllib.parse
 import re
 from io import BytesIO
 
-# Default sample WET file path from Common Crawl (CC-MAIN-2024-10)
-DEFAULT_WET_URL = "https://data.commoncrawl.org/crawl-data/CC-MAIN-2024-10/segments/1709977840134.12/wet/CC-MAIN-20240311025547-20240311055547-00000.warc.wet.gz"
+# Default live sample WET file path from Common Crawl (CC-MAIN-2024-51)
+DEFAULT_WET_URL = "https://data.commoncrawl.org/crawl-data/CC-MAIN-2024-51/segments/1733066035857.0/wet/CC-MAIN-20241201162023-20241201192023-00000.warc.wet.gz"
 
 # Fallback top global domains for fast seed ingestion if Common Crawl network is slow
 TOP_GLOBAL_DOMAINS = [
@@ -44,7 +44,18 @@ TOP_GLOBAL_DOMAINS = [
     ("https://www.reddit.com/r/technology/", "Reddit Technology News", "A dedicated community for all things technology and computing."),
     ("https://www.technologyreview.com/", "MIT Technology Review", "Authority on the future of technology, AI, computing, and biotechnology."),
     ("https://scientificamerican.com/", "Scientific American", "Research, science breakthroughs, and expert analysis since 1845."),
-    ("https://www.wired.com/", "WIRED - Tomorrow Realized", "In-depth reporting on technology, science, culture, and business.")
+    ("https://www.wired.com/", "WIRED - Tomorrow Realized", "In-depth reporting on technology, science, culture, and business."),
+    ("https://techcrunch.com/", "TechCrunch - Startup and Technology News", "Reporting on tech startups, venture capital, Silicon Valley, and consumer tech."),
+    ("https://www.theverge.com/", "The Verge - Technology, Science, Art, and Culture", "Covers the intersection of technology, science, art, and culture."),
+    ("https://arstechnica.com/", "Ars Technica - Technology News and Reviews", "Serving the technologist for more than a decade with IT news, analysis, and reviews."),
+    ("https://developer.mozilla.org/", "MDN Web Docs", "The definitive open resources for developers, by developers: HTML, CSS, JavaScript, and Web APIs."),
+    ("https://www.worldbank.org/", "The World Bank", "International organization dedicated to providing financing, advice, and research to developing nations."),
+    ("https://www.imf.org/", "International Monetary Fund", "Promoting global monetary cooperation, financial stability, international trade, and economic growth."),
+    ("https://cern.ch/", "CERN - Accelerating Science", "European Organization for Nuclear Research, operating the Large Hadron Collider."),
+    ("https://www.economist.com/", "The Economist - World News, Politics, Economics, Business & Finance", "Authoritative insight and opinion on international news, politics, business, finance, science and technology."),
+    ("https://www.nationalgeographic.com/", "National Geographic", "Explore world science, history, geography, wildlife, and exploration with award-winning photography."),
+    ("https://espn.com/", "ESPN - Worldwide Leader in Sports", "Sports scores, stats, live game coverage, trade rumors, and breaking sports news."),
+    ("https://www.cricinfo.com/", "ESPNcricinfo - Live Cricket Scores and Ball by Ball News", "Global cricket scores, live commentary, ICC tournaments, and international fixtures.")
 ]
 
 def tokenize_and_pos(text):
