@@ -56,24 +56,24 @@ export const CrawlModal: React.FC<Props> = ({ isOpen, onClose, onCrawlSuccess })
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-[#1a1a1d] border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative text-left">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-white dark:bg-[#212330] border border-slate-200 dark:border-[#2e3245] rounded-3xl max-w-lg w-full p-6 shadow-2xl relative text-left">
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="absolute top-5 right-5 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-[#f0f2f5] hover:bg-slate-100 dark:hover:bg-[#2e3245] transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
         <div className="flex items-center space-x-3 mb-5">
-          <div className="p-2.5 rounded-2xl bg-orange-50 dark:bg-orange-950/40 text-orange-600 border border-orange-200 dark:border-orange-900">
+          <div className="p-2.5 rounded-2xl bg-orange-50 dark:bg-[#fb542b]/15 text-[#fb542b] border border-orange-200 dark:border-[#fb542b]/30">
             <Bot className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-[#f0f2f5]">
               Live Web Crawler & Indexer
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-[#9ea4b6]">
               Goroutine-powered polite crawler with robots.txt adherence
             </p>
           </div>
@@ -81,21 +81,21 @@ export const CrawlModal: React.FC<Props> = ({ isOpen, onClose, onCrawlSuccess })
 
         <div className="space-y-4 text-sm">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-[#f0f2f5] mb-1.5">
               Seed URLs (one per line)
             </label>
             <textarea
               rows={4}
               value={seeds}
               onChange={(e) => setSeeds(e.target.value)}
-              className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#222226] text-slate-800 dark:text-slate-200 font-mono text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full p-3 rounded-xl border border-slate-200 dark:border-[#2e3245] bg-slate-50 dark:bg-[#191b26] text-slate-800 dark:text-[#f0f2f5] font-mono text-xs focus:ring-2 focus:ring-[#fb542b]/30 focus:border-[#fb542b] outline-none"
               placeholder="https://example.com"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-medium text-slate-700 dark:text-[#9ea4b6] mb-1">
                 Max Pages to Fetch
               </label>
               <input
@@ -104,11 +104,11 @@ export const CrawlModal: React.FC<Props> = ({ isOpen, onClose, onCrawlSuccess })
                 onChange={(e) => setMaxPages(Number(e.target.value))}
                 min={1}
                 max={500}
-                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#222226] text-xs outline-none"
+                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-[#2e3245] bg-slate-50 dark:bg-[#191b26] text-xs outline-none focus:border-[#fb542b]"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-medium text-slate-700 dark:text-[#9ea4b6] mb-1">
                 Politeness Delay (ms)
               </label>
               <input
@@ -117,20 +117,20 @@ export const CrawlModal: React.FC<Props> = ({ isOpen, onClose, onCrawlSuccess })
                 onChange={(e) => setPolitenessDelay(Number(e.target.value))}
                 min={100}
                 max={3000}
-                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#222226] text-xs outline-none"
+                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-[#2e3245] bg-slate-50 dark:bg-[#191b26] text-xs outline-none focus:border-[#fb542b]"
               />
             </div>
           </div>
 
           {statusMessage && (
-            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs flex items-center">
+            <div className="p-3 rounded-xl bg-orange-50 dark:bg-[#fb542b]/15 text-[#fb542b] text-xs flex items-center border border-orange-200 dark:border-[#fb542b]/30">
               <RefreshCw className="w-4 h-4 mr-2 animate-spin flex-shrink-0" />
               <span>{statusMessage}</span>
             </div>
           )}
 
           {error && (
-            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-xs flex items-center">
+            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-xs flex items-center border border-red-200 dark:border-red-900">
               <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
               <span>{error}</span>
             </div>
@@ -140,14 +140,14 @@ export const CrawlModal: React.FC<Props> = ({ isOpen, onClose, onCrawlSuccess })
         <div className="mt-6 flex justify-end space-x-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-[#9ea4b6] hover:bg-slate-100 dark:hover:bg-[#2e3245] transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleStartCrawl}
             disabled={loading}
-            className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-1.5 transition-colors shadow-sm"
+            className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#fb542b] hover:bg-[#e03e17] active:bg-[#c9330e] disabled:opacity-50 flex items-center space-x-1.5 transition-colors shadow-sm cursor-pointer"
           >
             {loading ? (
               <RefreshCw className="w-4 h-4 animate-spin mr-1" />

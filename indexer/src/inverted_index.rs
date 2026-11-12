@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use crate::snippet::SnippetGenerator;
@@ -274,7 +274,7 @@ impl InvertedIndex {
         }
 
         // Precompute Block-Max WAND upper bound scores for each term
-        for (term, postings) in &index.lexicon {
+        for (term, _postings) in &index.lexicon {
             let idf_val = index.idf(term);
             let max_score = idf_val * (index.k1 + 1.0);
             index.term_max_scores.insert(term.clone(), max_score);
@@ -436,6 +436,8 @@ impl InvertedIndex {
     /// - Phrase Proximity Verification
     /// - Title & Heading Match Bonus
     pub fn search(&self, query: &str, page: usize, page_size: usize) -> SearchResult {
+        let page_size = page_size.max(1).min(100);
+        let page = page.max(1);
         let start = std::time::Instant::now();
         let raw_query = query.trim();
         let is_exact_phrase_required = raw_query.starts_with('"') && raw_query.ends_with('"') && raw_query.len() > 2;

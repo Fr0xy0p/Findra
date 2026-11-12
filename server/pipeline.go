@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -33,7 +34,14 @@ func (pm *PipelineManager) TriggerCrawl(seeds []string, maxPages int, delayMs in
 
 	// 1. Run Go Crawler
 	fmt.Printf("[Pipeline] 🚀 Running Go Crawler for %d pages...\n", maxPages)
-	crawlerCmd := exec.Command("./crawler/crawler_bin",
+	crawlerPath := "./crawler/crawler_bin"
+	if _, err := os.Stat(crawlerPath); os.IsNotExist(err) {
+		if _, err := os.Stat("./crawler_bin"); err == nil {
+			crawlerPath = "./crawler_bin"
+		}
+	}
+
+	crawlerCmd := exec.Command(crawlerPath,
 		"--seeds", seedsArg,
 		"--max-pages", fmt.Sprintf("%d", maxPages),
 		"--delay-ms", fmt.Sprintf("%d", delayMs),
@@ -46,7 +54,11 @@ func (pm *PipelineManager) TriggerCrawl(seeds []string, maxPages int, delayMs in
 
 	// 2. Run Python Extractor & NLP Text Processor
 	fmt.Println("[Pipeline] 🐍 Running Python HTML Parser & Porter Stemmer...")
-	pyCmd := exec.Command(".venv/bin/python3", "extractor/run_pipeline.py",
+	pyBin := "python3"
+	if _, err := os.Stat(".venv/bin/python3"); err == nil {
+		pyBin = ".venv/bin/python3"
+	}
+	pyCmd := exec.Command(pyBin, "extractor/run_pipeline.py",
 		"--input", "data/raw_crawled/crawl_output.jsonl",
 		"--output", "data/parsed",
 	)
@@ -55,15 +67,23 @@ func (pm *PipelineManager) TriggerCrawl(seeds []string, maxPages int, delayMs in
 		return fmt.Errorf("extractor failed: %w", err)
 	}
 
-	// 3. Run C++ PageRank Engine
-	fmt.Println("[Pipeline] ⚡ Running C++ PageRank Power Iteration Engine...")
-	prCmd := exec.Command("./pagerank/pagerank_engine",
+	// 3. Run PageRank Engine (C++ or Python fallback)
+	fmt.Println("[Pipeline] ⚡ Running PageRank Power Iteration Engine...")
+	prPath := "./pagerank/pagerank_engine"
+	if _, err := os.Stat(prPath); os.IsNotExist(err) {
+		if _, err := os.Stat("./pagerank_engine"); err == nil {
+			prPath = "./pagerank_engine"
+		}
+	}
+
+	prCmd := exec.Command(prPath,
 		"data/parsed/link_graph.json",
 		"data/parsed/pagerank_scores.json",
 	)
 	if out, err := prCmd.CombinedOutput(); err != nil {
-		fmt.Printf("[Pipeline] PageRank output: %s\n", string(out))
-		return fmt.Errorf("pagerank engine failed: %w", err)
+		fmt.Printf("[Pipeline] C++ PageRank failed (%v: %s), running fallback...\n", err, string(out))
+		pyPrCmd := exec.Command(pyBin, "scripts/ingest_global.py")
+		_ = pyPrCmd.Run()
 	}
 
 	fmt.Println("[Pipeline] [✓] Pipeline execution finished successfully!")

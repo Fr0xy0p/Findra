@@ -1,8 +1,10 @@
 /// Variable-Byte (VByte) / Varint compression for posting list document ID deltas (d-gaps).
 /// Provides high compression ratios with zero runtime heap allocation overhead.
 
+#[allow(dead_code)]
 pub struct VByteCompressor;
 
+#[allow(dead_code)]
 impl VByteCompressor {
     /// Encode an unsigned 32-bit integer into a variable number of bytes (7 bits per byte, MSB 1 = continue).
     pub fn encode_u32(mut val: u32, out: &mut Vec<u8>) {

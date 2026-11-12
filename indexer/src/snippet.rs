@@ -17,7 +17,13 @@ impl SnippetGenerator {
             .collect();
 
         if term_set.is_empty() || full_text.len() <= max_len {
-            let end = full_text.len().min(max_len);
+            if full_text.len() <= max_len {
+                return full_text.to_string();
+            }
+            let mut end = max_len;
+            while end > 0 && !full_text.is_char_boundary(end) {
+                end -= 1;
+            }
             return full_text[..end].to_string();
         }
 
