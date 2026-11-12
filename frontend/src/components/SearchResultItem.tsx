@@ -5,15 +5,11 @@ import { ExternalLink, Globe, Award, Sparkles, Hash, ShieldCheck, Link as LinkIc
 interface Props {
   result: ResultType;
   query: string;
-  onOpenInBrowser?: (url: string, title?: string) => void;
-  inAppBrowserEnabled?: boolean;
 }
 
 export const SearchResultItem: React.FC<Props> = ({
   result,
   query,
-  onOpenInBrowser,
-  inAppBrowserEnabled = true,
 }) => {
   // Extract domain and clean path for breadcrumb
   let domain = result.domain || '';
@@ -67,11 +63,6 @@ export const SearchResultItem: React.FC<Props> = ({
     result.title.toLowerCase().includes('official site')
   );
 
-  const isDesktop = typeof navigator !== 'undefined' && (
-    navigator.userAgent.includes('Electron') ||
-    navigator.userAgent.includes('Findra')
-  );
-
   return (
     <article className="group mb-6 p-4 sm:p-5 rounded-2xl bg-transparent hover:bg-slate-50 dark:hover:bg-[#212330]/70 border border-transparent hover:border-slate-200 dark:hover:border-[#2e3245] transition-all duration-150 max-w-2xl text-left">
       {/* Brave Breadcrumb Header */}
@@ -95,48 +86,24 @@ export const SearchResultItem: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Brave Title Link */}
+      {/* Brave Title Link: Direct navigation to the destination website */}
       <div className="flex items-start justify-between gap-3 mb-1.5">
         <h2 className="text-lg sm:text-xl font-semibold leading-snug">
           <a
             href={result.url}
-            onClick={(e) => {
-              if (isDesktop || !inAppBrowserEnabled) {
-                return;
-              }
-              if (onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
-                e.preventDefault();
-                onOpenInBrowser(result.url, result.title);
-              }
-            }}
             className="text-[#1a0dab] dark:text-[#7c9bf8] hover:underline cursor-pointer inline transition-colors"
           >
             {result.title || result.url}
           </a>
         </h2>
 
-        {/* Quick Open Actions for Web Preview Mode */}
-        {!isDesktop && (
-          <div className="flex items-center space-x-1.5 flex-shrink-0 pt-0.5">
-            {onOpenInBrowser && inAppBrowserEnabled && (
-              <button
-                onClick={() => onOpenInBrowser(result.url, result.title)}
-                title="Preview inside Findra"
-                className="px-2 py-0.5 rounded-md text-[11px] font-medium text-[#fb542b] bg-orange-50 dark:bg-[#fb542b]/15 hover:bg-orange-100 dark:hover:bg-[#fb542b]/25 border border-orange-200 dark:border-[#fb542b]/30 transition-colors flex items-center space-x-1 cursor-pointer"
-              >
-                <Globe className="w-3 h-3" />
-                <span className="hidden sm:inline">Preview</span>
-              </button>
-            )}
-            <a
-              href={result.url}
-              title="Open site"
-              className="p-1 rounded-md text-slate-500 hover:text-slate-800 dark:text-[#9ea4b6] dark:hover:text-[#f0f2f5] hover:bg-slate-100 dark:hover:bg-[#2e3245] transition-colors"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-          </div>
-        )}
+        <a
+          href={result.url}
+          title="Open site directly"
+          className="p-1 rounded-md text-slate-400 hover:text-slate-800 dark:text-[#9ea4b6] dark:hover:text-[#f0f2f5] hover:bg-slate-100 dark:hover:bg-[#2e3245] transition-colors flex-shrink-0"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
       </div>
 
       {/* Snippet with Term Highlighting */}

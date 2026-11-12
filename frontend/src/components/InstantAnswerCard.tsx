@@ -1,13 +1,12 @@
 import React from 'react';
 import { InstantAnswer } from '../types';
-import { Calculator, ArrowRightLeft, Sparkles, BookOpen, ExternalLink, Bot, CheckCircle2, Shield } from 'lucide-react';
+import { Calculator, ArrowRightLeft, Sparkles, BookOpen, ExternalLink, Shield, CheckCircle2 } from 'lucide-react';
 
 interface Props {
   answer: InstantAnswer;
-  onOpenInBrowser?: (url: string, title?: string) => void;
 }
 
-export const InstantAnswerCard: React.FC<Props> = ({ answer, onOpenInBrowser }) => {
+export const InstantAnswerCard: React.FC<Props> = ({ answer }) => {
   const isAI = answer.type === 'ai_overview';
 
   if (isAI) {
@@ -61,12 +60,6 @@ export const InstantAnswerCard: React.FC<Props> = ({ answer, onOpenInBrowser }) 
               <span className="text-slate-400 dark:text-[#71788e] font-medium">Source:</span>
               <a
                 href={answer.source_url}
-                onClick={(e) => {
-                  if (onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
-                    e.preventDefault();
-                    onOpenInBrowser(answer.source_url!, answer.source_title || answer.title);
-                  }
-                }}
                 className="text-[#7c9bf8] hover:underline inline-flex items-center gap-1 font-medium truncate max-w-xs sm:max-w-md cursor-pointer"
               >
                 <span>{answer.source_title || 'Authoritative Reference'}</span>
@@ -135,12 +128,6 @@ export const InstantAnswerCard: React.FC<Props> = ({ answer, onOpenInBrowser }) 
         <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-[#2e3245] text-xs">
           <a
             href={answer.source_url}
-            onClick={(e) => {
-              if (onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
-                e.preventDefault();
-                onOpenInBrowser(answer.source_url!, answer.source_title || answer.title);
-              }
-            }}
             className="text-[#7c9bf8] hover:underline inline-flex items-center gap-1 font-medium"
           >
             <span>{answer.source_title || 'Reference'}</span>

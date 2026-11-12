@@ -331,6 +331,18 @@ function createTab(initialUrl = findraBaseUrl) {
     broadcastTabState();
   });
 
+  wc.on('did-navigate', (_e, navUrl) => {
+    if (!isTabAlive(tab) || !isWindowAlive(mainWindow)) return;
+    tab.url = navUrl;
+    broadcastTabState();
+  });
+
+  wc.on('did-navigate-in-page', (_e, navUrl) => {
+    if (!isTabAlive(tab) || !isWindowAlive(mainWindow)) return;
+    tab.url = navUrl;
+    broadcastTabState();
+  });
+
   wc.on('page-title-updated', (_e, title) => {
     if (!isTabAlive(tab) || !isWindowAlive(mainWindow)) return;
     tab.title = title || 'Untitled';

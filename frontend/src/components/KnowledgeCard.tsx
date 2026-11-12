@@ -6,14 +6,12 @@ interface Props {
   panel?: KnowledgePanel;
   topResult?: SearchResultItem;
   query: string;
-  onOpenInBrowser?: (url: string, title?: string) => void;
 }
 
 export const KnowledgeCard: React.FC<Props> = ({
   panel,
   topResult,
   query,
-  onOpenInBrowser,
 }) => {
   if (!panel && !topResult) return null;
 
@@ -77,39 +75,21 @@ export const KnowledgeCard: React.FC<Props> = ({
           </div>
         )}
 
-        {/* Action Buttons */}
+        {/* Action Buttons: Direct links */}
         <div className="space-y-2">
           {panel.website && (
-            <div className="flex items-center gap-1.5 w-full">
-              <a
-                href={panel.website}
-                className="flex-1 flex items-center justify-center py-2 px-3 text-xs font-semibold text-white bg-[#fb542b] hover:bg-[#e03e17] rounded-xl transition-colors cursor-pointer shadow-sm"
-              >
-                <Globe className="w-3.5 h-3.5 mr-1.5" />
-                <span>Visit Official Website</span>
-              </a>
-              {onOpenInBrowser && (
-                <button
-                  onClick={() => onOpenInBrowser(panel.website!, panel.title)}
-                  title="Preview inside Findra"
-                  className="px-2.5 py-2 text-xs font-medium text-slate-700 dark:text-[#f0f2f5] bg-slate-100 dark:bg-[#2c3042] hover:bg-slate-200 dark:hover:bg-[#34384d] rounded-xl transition-colors flex items-center justify-center border border-slate-200 dark:border-[#2e3245] flex-shrink-0 cursor-pointer"
-                >
-                  <span className="hidden sm:inline mr-1">Preview</span>
-                  <Globe className="w-3.5 h-3.5 text-[#fb542b]" />
-                </button>
-              )}
-            </div>
+            <a
+              href={panel.website}
+              className="w-full flex items-center justify-center py-2 px-3 text-xs font-semibold text-white bg-[#fb542b] hover:bg-[#e03e17] rounded-xl transition-colors cursor-pointer shadow-sm"
+            >
+              <Globe className="w-3.5 h-3.5 mr-1.5" />
+              <span>Visit Official Website</span>
+            </a>
           )}
 
           {panel.wikipedia_url && (
             <a
               href={panel.wikipedia_url}
-              onClick={(e) => {
-                if (onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
-                  e.preventDefault();
-                  onOpenInBrowser(panel.wikipedia_url!, `${panel.title} - Wikipedia`);
-                }
-              }}
               className="w-full flex items-center justify-center py-2 px-3 text-xs font-medium text-slate-700 dark:text-[#f0f2f5] bg-slate-100 dark:bg-[#2c3042] hover:bg-slate-200 dark:hover:bg-[#34384d] rounded-xl transition-colors cursor-pointer border border-slate-200 dark:border-[#2e3245]"
             >
               <span>Read more on Wikipedia</span>
