@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Clock } from 'lucide-react';
+import { Search, X, Clock, ArrowRight } from 'lucide-react';
 
 interface SearchBarProps {
   initialQuery?: string;
@@ -22,7 +22,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const justSubmittedRef = useRef<boolean>(false);
 
-  // Sync with initialQuery and keep popup strictly closed on page navigation/mounting
+  // Sync with initialQuery
   useEffect(() => {
     setQuery(initialQuery);
     setIsOpen(false);
@@ -32,7 +32,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   // Fetch suggestions ONLY when user is actively interacting with the input
   useEffect(() => {
-    // If search was just submitted or input is not focused, keep popup closed
     if (justSubmittedRef.current) {
       setIsOpen(false);
       return;
@@ -45,7 +44,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       return;
     }
 
-    // Never fetch or open suggestions if user is not currently focusing the input field
     if (typeof document !== 'undefined' && document.activeElement !== inputRef.current) {
       setIsOpen(false);
       return;
@@ -58,7 +56,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           const data = await res.json();
           const list = data.suggestions || [];
           setSuggestions(list);
-          // Only show popup if input is STILL focused and not just submitted
           if (
             typeof document !== 'undefined' &&
             document.activeElement === inputRef.current &&
@@ -97,7 +94,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const handleSubmit = (searchQuery: string) => {
     const trimmed = searchQuery.trim();
     if (!trimmed) return;
-
     justSubmittedRef.current = true;
     setIsOpen(false);
     setSuggestions([]);
@@ -106,7 +102,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
     onSearch(trimmed);
 
-    // Reset submission lock after brief transition
     setTimeout(() => {
       justSubmittedRef.current = false;
     }, 300);
@@ -139,13 +134,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   return (
     <div className={`relative w-full ${isLarge ? 'max-w-2xl' : 'max-w-xl'}`}>
       <div
-        className={`flex items-center w-full transition-all duration-200 bg-white dark:bg-[#202124] border ${
+        className={`flex items-center w-full transition-all duration-200 bg-white dark:bg-[#212330] border ${
           isOpen && suggestions.length > 0
-            ? 'rounded-t-3xl border-slate-300 dark:border-slate-700 shadow-lg'
-            : 'rounded-full border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm hover:shadow'
+            ? 'rounded-t-2xl border-[#fb542b] ring-2 ring-[#fb542b]/25 shadow-lg'
+            : 'rounded-full border-slate-200 dark:border-[#2e3245] hover:border-slate-300 dark:hover:border-[#3d425c] focus-within:border-[#fb542b] focus-within:ring-2 focus-within:ring-[#fb542b]/25 shadow-sm hover:shadow'
         } ${isLarge ? 'h-13 px-5' : 'h-11 px-4'}`}
       >
-        <Search className={`${isLarge ? 'w-5 h-5' : 'w-4 h-4'} text-slate-400 mr-3 flex-shrink-0`} />
+        <Search className={`${isLarge ? 'w-5 h-5' : 'w-4 h-4'} text-slate-400 dark:text-[#9ea4b6] mr-3 flex-shrink-0`} />
 
         <input
           ref={inputRef}
@@ -161,40 +156,53 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             if (suggestions.length > 0) setIsOpen(true);
           }}
           onBlur={() => {
-            // Slight delay so onMouseDown on suggestions can execute before close
             setTimeout(() => {
               setIsOpen(false);
             }, 150);
           }}
           onKeyDown={handleKeyDown}
           autoFocus={autoFocus}
-          placeholder="Search the polite web or enter a topic..."
-          className={`w-full bg-transparent border-none outline-none text-slate-800 dark:text-slate-100 placeholder-slate-400 ${
+          placeholder="Search the polite web or enter a URL..."
+          className={`w-full bg-transparent border-none outline-none text-slate-900 dark:text-[#f0f2f5] placeholder-slate-400 dark:placeholder-[#9ea4b6] font-normal ${
             isLarge ? 'text-base' : 'text-sm'
           }`}
         />
 
-        {query && (
+        <div className="flex items-center space-x-1.5 flex-shrink-0 ml-2">
+          {query && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery('');
+                setSuggestions([]);
+                setIsOpen(false);
+                inputRef.current?.focus();
+              }}
+              className="p-1 hover:bg-slate-100 dark:hover:bg-[#2e3245] rounded-full text-slate-400 dark:text-[#9ea4b6] hover:text-slate-600 dark:hover:text-[#f0f2f5] transition-colors cursor-pointer"
+              title="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             type="button"
-            onClick={() => {
-              setQuery('');
-              setSuggestions([]);
-              setIsOpen(false);
-              inputRef.current?.focus();
-            }}
-            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+            onClick={() => handleSubmit(query)}
+            className={`flex items-center justify-center rounded-full bg-[#fb542b] hover:bg-[#e03e17] active:bg-[#c9330e] text-white transition-all cursor-pointer shadow-sm ${
+              isLarge ? 'w-8 h-8' : 'w-7 h-7'
+            }`}
+            title="Search"
           >
-            <X className="w-4 h-4" />
+            <ArrowRight className={`${isLarge ? 'w-4 h-4' : 'w-3.5 h-3.5'}`} />
           </button>
-        )}
+        </div>
       </div>
 
-      {/* Autocomplete dropdown */}
+      {/* Autocomplete dropdown - Brave Search Style */}
       {isOpen && suggestions.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute left-0 right-0 top-full bg-white dark:bg-[#202124] border border-t-0 border-slate-300 dark:border-slate-700 rounded-b-3xl shadow-xl z-50 overflow-hidden py-2"
+          className="absolute left-0 right-0 top-full bg-white dark:bg-[#212330] border border-t-0 border-[#fb542b] rounded-b-2xl shadow-xl z-50 overflow-hidden py-2"
         >
           {suggestions.map((item, idx) => (
             <div
@@ -207,11 +215,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               onMouseEnter={() => setSelectedIndex(idx)}
               className={`flex items-center px-5 py-2.5 cursor-pointer text-sm transition-colors ${
                 idx === selectedIndex
-                  ? 'bg-slate-100 dark:bg-[#303134] text-blue-600 dark:text-blue-400 font-medium'
-                  : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#28292c]'
+                  ? 'bg-orange-50 dark:bg-[#2c3042] text-[#fb542b] font-medium'
+                  : 'text-slate-700 dark:text-[#f0f2f5] hover:bg-slate-50 dark:hover:bg-[#282a3a]'
               }`}
             >
-              <Clock className="w-4 h-4 text-slate-400 mr-3 flex-shrink-0" />
+              <Clock className="w-4 h-4 text-slate-400 dark:text-[#9ea4b6] mr-3 flex-shrink-0" />
               <span className="truncate">{item}</span>
             </div>
           ))}

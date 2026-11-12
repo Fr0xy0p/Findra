@@ -18,20 +18,29 @@ import {
   Layers,
   Sparkles,
   ExternalLink,
-  SlidersHorizontal,
   Compass,
   Code2,
   ArrowLeft,
-  Globe
+  Globe,
+  MessageSquare,
+  Trophy,
+  Newspaper,
+  ShieldAlert,
+  Flame,
+  CheckCircle2,
+  Lock
 } from 'lucide-react';
 
+export type SearchTabType = 'all' | 'tech' | 'sports' | 'news' | 'discussions' | 'docs';
+
 const getInitialUrlState = () => {
-  if (typeof window === 'undefined') return { q: '', page: 1, tab: 'all' as const };
+  if (typeof window === 'undefined') return { q: '', page: 1, tab: 'all' as SearchTabType };
   const params = new URLSearchParams(window.location.search);
   const q = params.get('q') || '';
   const page = parseInt(params.get('page') || '1', 10);
   const rawTab = params.get('tab');
-  const tab = (rawTab === 'tech' || rawTab === 'docs' || rawTab === 'news' ? rawTab : 'all') as 'all' | 'tech' | 'docs' | 'news';
+  const validTabs: SearchTabType[] = ['all', 'tech', 'sports', 'news', 'discussions', 'docs'];
+  const tab = validTabs.includes(rawTab as SearchTabType) ? (rawTab as SearchTabType) : 'all';
   return { q, page, tab };
 };
 
@@ -45,7 +54,7 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState(isSearchPath);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isCrawlModalOpen, setIsCrawlModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'tech' | 'docs' | 'news'>(initialUrlState.tab);
+  const [activeTab, setActiveTab] = useState<SearchTabType>(initialUrlState.tab);
 
   // Check if running inside Findra Desktop App / Electron
   const isDesktopApp = typeof navigator !== 'undefined' && (
@@ -53,7 +62,7 @@ export const App: React.FC = () => {
     navigator.userAgent.includes('Findra')
   );
 
-  // In-App Browser State (disabled by default in native desktop app so sites navigate in the same tab)
+  // In-App Browser State
   const [inAppBrowserUrl, setInAppBrowserUrl] = useState<string | null>(null);
   const [inAppBrowserTitle, setInAppBrowserTitle] = useState<string | null>(null);
   const [inAppBrowserEnabled, setInAppBrowserEnabled] = useState(!isDesktopApp);
@@ -103,7 +112,7 @@ export const App: React.FC = () => {
   const executeSearch = async (
     searchQuery: string,
     page: number = 1,
-    tab: 'all' | 'tech' | 'docs' | 'news' = activeTab,
+    tab: SearchTabType = activeTab,
     updateUrl: boolean = true
   ) => {
     const trimmed = searchQuery.trim();
@@ -121,6 +130,7 @@ export const App: React.FC = () => {
     }
 
     try {
+      // Forward tab filter parameter
       const res = await fetch(
         `/api/search?q=${encodeURIComponent(trimmed)}&page=${page}&limit=10&tab=${tab}`
       );
@@ -148,13 +158,16 @@ export const App: React.FC = () => {
     }
   };
 
-  // Listen to browser Back and Forward button navigation (popstate)
+  // Listen to browser Back and Forward navigation
   useEffect(() => {
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
       const urlQ = params.get('q');
       const urlPage = parseInt(params.get('page') || '1', 10);
-      const urlTab = (params.get('tab') as 'all' | 'tech' | 'docs' | 'news') || 'all';
+      const rawTab = params.get('tab') as SearchTabType;
+      const urlTab: SearchTabType = ['all', 'tech', 'sports', 'news', 'discussions', 'docs'].includes(rawTab)
+        ? rawTab
+        : 'all';
 
       if (urlQ && window.location.pathname.startsWith('/search')) {
         setQuery(urlQ);
@@ -173,7 +186,7 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Initial load check: if URL already has /search?q=..., load it on page load/refresh
+  // Initial load check
   useEffect(() => {
     if (initialUrlState.q && window.location.pathname.startsWith('/search')) {
       executeSearch(initialUrlState.q, initialUrlState.page, initialUrlState.tab, false);
@@ -185,7 +198,7 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleTabChange = (newTab: 'all' | 'tech' | 'docs' | 'news') => {
+  const handleTabChange = (newTab: SearchTabType) => {
     setActiveTab(newTab);
     if (query) {
       executeSearch(query, 1, newTab, true);
@@ -194,32 +207,47 @@ export const App: React.FC = () => {
 
   const isHome = !searchResponse && !loading && (!window.location.pathname.startsWith('/search') || !query);
 
+  // Filter discussion results for Brave Discussions box
+  const discussionItems = searchResponse?.results.filter((item) => {
+    const url = item.url.toLowerCase();
+    const title = item.title.toLowerCase();
+    return (
+      url.includes('reddit.com') ||
+      url.includes('github.com') ||
+      url.includes('news.ycombinator.com') ||
+      url.includes('stackoverflow.com') ||
+      url.includes('forum') ||
+      url.includes('community') ||
+      title.includes('discussion')
+    );
+  }) || [];
+
   return (
-    <div className="min-h-screen flex flex-col justify-between transition-colors duration-200">
-      {/* ----------------- HOME VIEW ----------------- */}
+    <div className="min-h-screen flex flex-col justify-between transition-colors duration-200 bg-white dark:bg-[#191b26] text-slate-900 dark:text-[#f0f2f5]">
+      {/* ----------------- BRAVE SEARCH HOME VIEW ----------------- */}
       {isHome ? (
         <div className="flex-1 flex flex-col justify-between p-4 sm:p-6">
-          {/* Top Header Bar */}
+          {/* Top Privacy & Tooling Bar */}
           <header className="flex justify-between items-center w-full max-w-6xl mx-auto">
-            <div className="flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400">
-              <span className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium">
-                <ShieldCheck className="w-4 h-4 mr-1" />
-                No Tracking • Zero Profiling
+            <div className="flex items-center space-x-2 text-xs">
+              <span className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800/60">
+                <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
+                <span>Zero Profiling • 100% Ad-Free Guarantee</span>
               </span>
             </div>
 
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => setIsCrawlModalOpen(true)}
-                className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900 hover:bg-orange-100 transition-colors"
+                className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-[#fb542b] bg-orange-50 dark:bg-[#fb542b]/15 border border-orange-200 dark:border-[#fb542b]/30 hover:bg-orange-100 dark:hover:bg-[#fb542b]/25 transition-colors cursor-pointer"
               >
                 <Bot className="w-3.5 h-3.5" />
-                <span>Crawl New Web</span>
+                <span>Crawl Web</span>
               </button>
 
               <button
                 onClick={() => setIsDarkMode(!isDarkMode)}
-                className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-[#212330] transition-colors cursor-pointer"
                 title="Toggle Theme"
               >
                 {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
@@ -227,85 +255,105 @@ export const App: React.FC = () => {
             </div>
           </header>
 
-          {/* Central Logo & Omnibar */}
+          {/* Central Brave Lion Emblem & Omnibar */}
           <main className="flex flex-col items-center justify-center my-auto w-full max-w-3xl mx-auto text-center px-4">
-            {/* Logo */}
-            <div className="mb-8 select-none">
-              <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-amber-500 text-white shadow-lg mb-4">
-                <Sparkles className="w-8 h-8" />
+            {/* Brave Style Emblem Logo */}
+            <div className="mb-8 select-none flex flex-col items-center">
+              <div className="inline-flex items-center justify-center p-3.5 rounded-2xl bg-gradient-to-tr from-[#fb542b] via-[#ff6a3d] to-[#e02800] text-white shadow-lg shadow-[#fb542b]/20 mb-3 hover:scale-105 transition-transform duration-200">
+                {/* Brave Shield Emblem SVG */}
+                <svg className="w-10 h-10 fill-current" viewBox="0 0 24 24">
+                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18l7 3.12v4.7c0 4.67-3.13 9.03-7 10.18-3.87-1.15-7-5.51-7-10.18V6.3l7-3.12zm-1 5.82v6h2v-6h-2zm0 8v2h2v-2h-2z" />
+                </svg>
               </div>
-              <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight">
-                <span className="text-[#4285F4]">F</span>
-                <span className="text-[#EA4335]">i</span>
-                <span className="text-[#FBBC05]">n</span>
-                <span className="text-[#4285F4]">d</span>
-                <span className="text-[#34A853]">r</span>
-                <span className="text-[#EA4335]">a</span>
-                <span className="text-slate-800 dark:text-slate-200 ml-2">Search</span>
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-mono">
-                BM25 • PageRank • Rust Inverted Index • Polite Go Crawler
+
+              <div className="flex items-center justify-center space-x-2">
+                <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
+                  Findra
+                </h1>
+                <span className="text-sm font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#fb542b] text-white">
+                  Search
+                </span>
+              </div>
+
+              <p className="text-sm text-slate-500 dark:text-[#9ea4b6] mt-2 font-medium">
+                The private, independent, and ad-free web engine.
               </p>
             </div>
 
-            {/* Omnibar */}
+            {/* Brave Omnibar */}
             <SearchBar onSearch={(q) => executeSearch(q, 1)} autoFocus={true} size="large" />
 
-            {/* Quick Action Buttons */}
-            <div className="flex items-center space-x-3 mt-7">
+            {/* Brave Category Quick Chips */}
+            <div className="flex items-center flex-wrap justify-center gap-2.5 mt-7">
               <button
-                onClick={() => executeSearch('search engine', 1)}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-[#202124] border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm transition-all"
+                onClick={() => executeSearch('artificial intelligence deep learning', 1, 'tech')}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#f0f2f5] bg-slate-100 dark:bg-[#212330] hover:bg-slate-200 dark:hover:bg-[#2c3042] border border-slate-200 dark:border-[#2e3245] transition-all cursor-pointer flex items-center space-x-1.5"
               >
-                Search Engine Architecture
+                <Code2 className="w-3.5 h-3.5 text-[#fb542b]" />
+                <span>AI & Tech</span>
               </button>
+
               <button
-                onClick={() => executeSearch('pagerank algorithm', 1)}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-[#202124] border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm transition-all"
+                onClick={() => executeSearch('cs2 esports champions tour valorant', 1, 'sports')}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#f0f2f5] bg-slate-100 dark:bg-[#212330] hover:bg-slate-200 dark:hover:bg-[#2c3042] border border-slate-200 dark:border-[#2e3245] transition-all cursor-pointer flex items-center space-x-1.5"
               >
-                PageRank
+                <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                <span>Esports & Gaming</span>
               </button>
+
               <button
-                onClick={() => executeSearch('inverted index rust', 1)}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-[#202124] border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm transition-all"
+                onClick={() => executeSearch('world cup champions league football', 1, 'sports')}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#f0f2f5] bg-slate-100 dark:bg-[#212330] hover:bg-slate-200 dark:hover:bg-[#2c3042] border border-slate-200 dark:border-[#2e3245] transition-all cursor-pointer flex items-center space-x-1.5"
               >
-                Rust Indexing
+                <Zap className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Global Sports</span>
+              </button>
+
+              <button
+                onClick={() => executeSearch('reddit discussion search engine architecture', 1, 'discussions')}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#f0f2f5] bg-slate-100 dark:bg-[#212330] hover:bg-slate-200 dark:hover:bg-[#2c3042] border border-slate-200 dark:border-[#2e3245] transition-all cursor-pointer flex items-center space-x-1.5"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-blue-500" />
+                <span>Discussions</span>
               </button>
             </div>
           </main>
 
-          {/* Footer Stats Bar */}
-          <footer className="w-full max-w-5xl mx-auto py-4 border-t border-slate-200 dark:border-slate-800/80 text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-3">
+          {/* Brave Privacy Guarantee Footer */}
+          <footer className="w-full max-w-5xl mx-auto py-4 border-t border-slate-200 dark:border-[#2e3245] text-xs text-slate-500 dark:text-[#9ea4b6] flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center space-x-4">
-              <span className="flex items-center">
-                <Cpu className="w-3.5 h-3.5 mr-1 text-blue-500" />
-                Indexed Docs: {stats?.total_documents ?? 0}
+              <span className="flex items-center font-medium">
+                <Cpu className="w-3.5 h-3.5 mr-1.5 text-[#fb542b]" />
+                Indexed Web Pages: <span className="ml-1 font-bold text-slate-800 dark:text-white">{stats?.total_documents ?? 0}</span>
               </span>
-              <span className="flex items-center">
-                <Layers className="w-3.5 h-3.5 mr-1 text-emerald-500" />
-                Terms in Lexicon: {stats?.total_terms ?? 0}
+              <span className="flex items-center font-medium">
+                <Layers className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />
+                Lexicon Terms: <span className="ml-1 font-bold text-slate-800 dark:text-white">{stats?.total_terms ?? 0}</span>
               </span>
             </div>
-            <div className="flex items-center space-x-4 font-mono text-[11px]">
-              <span>Latency: &lt; 2ms</span>
+            <div className="flex items-center space-x-3 text-[11px] font-mono">
+              <span className="flex items-center text-emerald-600 dark:text-emerald-400">
+                <Lock className="w-3 h-3 mr-1" />
+                Ghostery & EasyList AdBlock Active
+              </span>
               <span>•</span>
-              <span>Memory Safe (Rust + Go)</span>
+              <span>Sub-millisecond Rust Query Server</span>
             </div>
           </footer>
         </div>
       ) : (
-        /* ----------------- SEARCH RESULTS VIEW ----------------- */
+        /* ----------------- BRAVE SEARCH RESULTS VIEW ----------------- */
         <div className="flex-1 flex flex-col">
           {/* Top Sticky Header */}
-          <header className="sticky top-0 z-40 bg-white/90 dark:bg-[#121214]/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 sm:px-8 py-3.5">
+          <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#191b26]/95 backdrop-blur-md border-b border-slate-200 dark:border-[#2e3245] px-4 sm:px-8 py-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 max-w-7xl mx-auto">
-              <div className="flex items-center space-x-5 flex-1">
-                {/* Back to Home Button & Logo */}
-                <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4 flex-1">
+                {/* Back to Home Button & Brave Logo */}
+                <div className="flex items-center space-x-3 flex-shrink-0">
                   <button
                     onClick={navigateToHome}
                     title="Go back to Home"
-                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer text-xs font-medium"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-slate-600 dark:text-[#9ea4b6] hover:bg-slate-100 dark:hover:bg-[#212330] border border-slate-200 dark:border-[#2e3245] transition-colors cursor-pointer text-xs font-semibold"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Home</span>
@@ -313,19 +361,21 @@ export const App: React.FC = () => {
 
                   <div
                     onClick={navigateToHome}
-                    className="cursor-pointer select-none text-2xl font-bold tracking-tight hover:opacity-90 transition-opacity"
+                    className="cursor-pointer select-none flex items-center space-x-1.5 hover:opacity-90 transition-opacity"
                     title="Findra Home"
                   >
-                    <span className="text-[#4285F4]">F</span>
-                    <span className="text-[#EA4335]">i</span>
-                    <span className="text-[#FBBC05]">n</span>
-                    <span className="text-[#4285F4]">d</span>
-                    <span className="text-[#34A853]">r</span>
-                    <span className="text-[#EA4335]">a</span>
+                    <div className="p-1.5 rounded-xl bg-gradient-to-tr from-[#fb542b] to-[#e02800] text-white shadow-sm">
+                      <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
+                      </svg>
+                    </div>
+                    <span className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                      Findra
+                    </span>
                   </div>
                 </div>
 
-                {/* Compact SearchBar */}
+                {/* Compact Brave Omnibar */}
                 <div className="flex-1 max-w-2xl">
                   <SearchBar
                     initialQuery={query}
@@ -337,6 +387,12 @@ export const App: React.FC = () => {
 
               {/* Action Buttons */}
               <div className="flex items-center space-x-2.5 self-end sm:self-auto">
+                {/* Shield Badge */}
+                <div className="hidden md:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Shield Active</span>
+                </div>
+
                 {!isDesktopApp && (
                   <button
                     onClick={() => setInAppBrowserEnabled(!inAppBrowserEnabled)}
@@ -347,19 +403,19 @@ export const App: React.FC = () => {
                     }
                     className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
                       inAppBrowserEnabled
-                        ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-                        : 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 border-slate-200 dark:border-slate-700'
+                        ? 'bg-orange-50 dark:bg-[#fb542b]/15 text-[#fb542b] border-orange-200 dark:border-[#fb542b]/30'
+                        : 'bg-slate-100 dark:bg-[#212330] text-slate-500 border-slate-200 dark:border-[#2e3245]'
                     }`}
                   >
-                    <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span className="hidden md:inline">In-App Browser:</span>
+                    <Globe className="w-3.5 h-3.5 text-[#fb542b]" />
+                    <span className="hidden md:inline">Preview:</span>
                     <span className="font-bold">{inAppBrowserEnabled ? 'ON' : 'OFF'}</span>
                   </button>
                 )}
 
                 <button
                   onClick={() => setIsCrawlModalOpen(true)}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900 hover:bg-orange-100 transition-colors cursor-pointer"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-[#fb542b] bg-orange-50 dark:bg-[#fb542b]/15 border border-orange-200 dark:border-[#fb542b]/30 hover:bg-orange-100 dark:hover:bg-[#fb542b]/25 transition-colors cursor-pointer"
                 >
                   <Bot className="w-3.5 h-3.5" />
                   <span>Crawl</span>
@@ -367,43 +423,81 @@ export const App: React.FC = () => {
 
                 <button
                   onClick={() => setIsDarkMode(!isDarkMode)}
-                  className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-[#212330] transition-colors cursor-pointer"
                 >
                   {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Filter Tabs (All, Tech, Docs) */}
-            <div className="flex items-center space-x-6 max-w-7xl mx-auto mt-3 pl-2 sm:pl-24 text-xs font-medium text-slate-500 dark:text-slate-400">
+            {/* Brave Filter Tabs Navigation Bar */}
+            <div className="flex items-center space-x-6 max-w-7xl mx-auto mt-2.5 pl-2 sm:pl-28 text-xs font-semibold text-slate-500 dark:text-[#9ea4b6] overflow-x-auto scrollbar-none">
               <button
                 onClick={() => handleTabChange('all')}
-                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1 cursor-pointer ${
+                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1.5 cursor-pointer whitespace-nowrap ${
                   activeTab === 'all'
-                    ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-semibold'
-                    : 'border-transparent hover:text-slate-800 dark:hover:text-slate-200'
+                    ? 'border-[#fb542b] text-[#fb542b]'
+                    : 'border-transparent hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <Search className="w-3.5 h-3.5" />
                 <span>All</span>
               </button>
+
+              <button
+                onClick={() => handleTabChange('news')}
+                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1.5 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'news'
+                    ? 'border-[#fb542b] text-[#fb542b]'
+                    : 'border-transparent hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Newspaper className="w-3.5 h-3.5" />
+                <span>News</span>
+              </button>
+
               <button
                 onClick={() => handleTabChange('tech')}
-                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1 cursor-pointer ${
+                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1.5 cursor-pointer whitespace-nowrap ${
                   activeTab === 'tech'
-                    ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-semibold'
-                    : 'border-transparent hover:text-slate-800 dark:hover:text-slate-200'
+                    ? 'border-[#fb542b] text-[#fb542b]'
+                    : 'border-transparent hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <Code2 className="w-3.5 h-3.5" />
                 <span>Tech</span>
               </button>
+
+              <button
+                onClick={() => handleTabChange('sports')}
+                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1.5 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'sports'
+                    ? 'border-[#fb542b] text-[#fb542b]'
+                    : 'border-transparent hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Trophy className="w-3.5 h-3.5" />
+                <span>Sports & Esports</span>
+              </button>
+
+              <button
+                onClick={() => handleTabChange('discussions')}
+                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1.5 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'discussions'
+                    ? 'border-[#fb542b] text-[#fb542b]'
+                    : 'border-transparent hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Discussions</span>
+              </button>
+
               <button
                 onClick={() => handleTabChange('docs')}
-                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1 cursor-pointer ${
+                className={`pb-2 border-b-2 transition-colors flex items-center space-x-1.5 cursor-pointer whitespace-nowrap ${
                   activeTab === 'docs'
-                    ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-semibold'
-                    : 'border-transparent hover:text-slate-800 dark:hover:text-slate-200'
+                    ? 'border-[#fb542b] text-[#fb542b]'
+                    : 'border-transparent hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <Compass className="w-3.5 h-3.5" />
@@ -416,25 +510,26 @@ export const App: React.FC = () => {
           <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-5">
             {/* Performance Stats Banner & Did You Mean */}
             {searchResponse && (
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-4 pl-2 sm:pl-24">
+              <div className="text-xs text-slate-500 dark:text-[#9ea4b6] mb-4 pl-2 sm:pl-28">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span>
                     About {searchResponse.total_hits.toLocaleString()} results (
                     {(searchResponse.took_ms / 1000).toFixed(4)} seconds)
                   </span>
                   {searchResponse.is_live_discovered && (
-                    <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                    <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
                       <Globe className="w-3 h-3 mr-1 animate-pulse" />
                       <span>{searchResponse.source_notice || "Worldwide Web Live Retrieval • Auto-Indexed"}</span>
                     </span>
                   )}
                 </div>
+
                 {searchResponse.did_you_mean && (
-                  <div className="mt-2 text-sm text-slate-800 dark:text-slate-200">
-                    <span className="text-red-500 font-medium">Did you mean: </span>
+                  <div className="mt-2 text-sm text-slate-800 dark:text-[#f0f2f5]">
+                    <span className="text-[#fb542b] font-semibold">Did you mean: </span>
                     <button
                       onClick={() => executeSearch(searchResponse.did_you_mean!, 1)}
-                      className="text-blue-600 dark:text-blue-400 font-semibold italic hover:underline cursor-pointer"
+                      className="text-[#7c9bf8] font-semibold italic hover:underline cursor-pointer"
                     >
                       {searchResponse.did_you_mean}
                     </button>
@@ -445,19 +540,20 @@ export const App: React.FC = () => {
 
             {loading ? (
               /* Loading Skeleton */
-              <div className="space-y-6 max-w-2xl pl-2 sm:pl-24">
+              <div className="space-y-6 max-w-2xl pl-2 sm:pl-28">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="animate-pulse space-y-2">
-                    <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-1/4" />
-                    <div className="h-5 bg-slate-200 dark:bg-slate-800 rounded w-3/4" />
-                    <div className="h-12 bg-slate-200 dark:bg-slate-800 rounded w-full" />
+                  <div key={i} className="animate-pulse space-y-2.5 p-4 rounded-2xl bg-slate-50 dark:bg-[#212330]/50 border border-slate-200/50 dark:border-[#2e3245]/50">
+                    <div className="h-3 bg-slate-200 dark:bg-[#2e3245] rounded w-1/4" />
+                    <div className="h-5 bg-slate-200 dark:bg-[#2e3245] rounded w-3/4" />
+                    <div className="h-12 bg-slate-200 dark:bg-[#2e3245] rounded w-full" />
                   </div>
                 ))}
               </div>
             ) : searchResponse && (searchResponse.results.length > 0 || searchResponse.instant_answer) ? (
               /* Result Cards + Right Knowledge Panel OR Split In-App Browser */
-              <div className={`flex items-start gap-8 ${isSplitView && inAppBrowserUrl ? 'pl-2' : 'pl-2 sm:pl-24'}`}>
+              <div className={`flex items-start gap-8 ${isSplitView && inAppBrowserUrl ? 'pl-2' : 'pl-2 sm:pl-28'}`}>
                 <div className={`flex-1 transition-all ${isSplitView && inAppBrowserUrl ? 'max-w-xl' : 'max-w-2xl'}`}>
+                  {/* Brave Leo AI Overview */}
                   {searchResponse.instant_answer && (
                     <InstantAnswerCard
                       answer={searchResponse.instant_answer}
@@ -465,6 +561,36 @@ export const App: React.FC = () => {
                     />
                   )}
 
+                  {/* Brave Discussions Box (if community discussions found) */}
+                  {discussionItems.length > 0 && activeTab !== 'discussions' && (
+                    <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-[#212330] border border-slate-200 dark:border-[#2e3245] text-left">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <MessageSquare className="w-4 h-4 text-[#fb542b]" />
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-[#f0f2f5]">
+                          Discussions & Community
+                        </h3>
+                      </div>
+                      <div className="space-y-2.5">
+                        {discussionItems.slice(0, 3).map((disc) => (
+                          <div key={disc.doc_id} className="text-xs">
+                            <a
+                              href={disc.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-medium text-[#7c9bf8] hover:underline block truncate"
+                            >
+                              {disc.title}
+                            </a>
+                            <span className="text-[11px] text-slate-400 dark:text-[#71788e]">
+                              {disc.domain} • {disc.doc_length} words
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Organic Search Results */}
                   {searchResponse.results.map((item) => (
                     <SearchResultItem
                       key={item.doc_id}
@@ -482,7 +608,7 @@ export const App: React.FC = () => {
                   />
                 </div>
 
-                {/* If Split Browser is Open: render In-App Browser side-by-side */}
+                {/* Right Knowledge Panel */}
                 {isSplitView && inAppBrowserUrl ? (
                   <EmbeddedBrowser
                     initialUrl={inAppBrowserUrl}
@@ -492,7 +618,6 @@ export const App: React.FC = () => {
                     onToggleSplitView={toggleSplitView}
                   />
                 ) : (
-                  /* Right Knowledge Panel */
                   <KnowledgeCard
                     panel={searchResponse.knowledge_panel}
                     topResult={searchResponse.results[0]}
@@ -503,14 +628,14 @@ export const App: React.FC = () => {
               </div>
             ) : (
               /* No results */
-              <div className="pl-2 sm:pl-24 max-w-xl text-left py-12">
-                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">
+              <div className="pl-2 sm:pl-28 max-w-xl text-left py-12">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-[#f0f2f5] mb-2">
                   No matching results found for "{query}".
                 </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                <p className="text-sm text-slate-500 dark:text-[#9ea4b6] mb-4">
                   Suggestions:
                 </p>
-                <ul className="list-disc pl-5 text-xs text-slate-500 dark:text-slate-400 space-y-1">
+                <ul className="list-disc pl-5 text-xs text-slate-500 dark:text-[#9ea4b6] space-y-1">
                   <li>Make sure that all words are spelled correctly.</li>
                   <li>Try different keywords or more general terms.</li>
                   <li>Click "Crawl" above to fetch and index new domains into the engine.</li>
@@ -544,4 +669,3 @@ export const App: React.FC = () => {
     </div>
   );
 };
-

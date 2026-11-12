@@ -3,17 +3,28 @@
 :root {
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  --google-blue: #1a0dab;
-  --google-dark-blue: #8ab4f8;
-  --google-green: #006621;
-  --google-dark-green: #5bb974;
-  --brave-orange: #ff5500;
+  --brave-orange: #fb542b;
+  --brave-orange-hover: #e03e17;
+  --brave-orange-active: #c9330e;
+  --brave-dark-bg: #191b26;
+  --brave-dark-surface: #212330;
+  --brave-dark-border: #2e3245;
+  --brave-dark-hover: #2c3042;
+  --brave-link-blue: #7c9bf8;
 }
 
 body {
   margin: 0;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  background-color: #ffffff;
+  color: #111827;
+}
+
+.dark body,
+html.dark body {
+  background-color: #191b26;
+  color: #f0f2f5;
 }
 
 .font-mono {
@@ -24,14 +35,14 @@ body {
 .snippet-highlight {
   font-weight: 600;
   color: #111827;
-  background-color: rgba(254, 240, 138, 0.45);
+  background-color: rgba(251, 84, 43, 0.18);
   border-radius: 2px;
-  padding: 0 1px;
+  padding: 0 2px;
 }
 
 .dark .snippet-highlight {
-  color: #f3f4f6;
-  background-color: rgba(234, 179, 8, 0.25);
+  color: #ffffff;
+  background-color: rgba(251, 84, 43, 0.35);
 }
 
 /* Custom scrollbars */
@@ -45,10 +56,14 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.4);
+  background: rgba(156, 163, 175, 0.35);
   border-radius: 9999px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(46, 50, 69, 0.8);
+}
+
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.7);
+  background: rgba(251, 84, 43, 0.6);
 }

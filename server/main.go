@@ -56,18 +56,43 @@ func (gw *APIGateway) handleSearch(w http.ResponseWriter, r *http.Request) {
 		limit = 10
 	}
 
-	cacheKey := fmt.Sprintf("search:%s:%d:%d", strings.ToLower(q), page, limit)
+	tab := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("tab")))
+	if tab == "" {
+		tab = "all"
+	}
+
+	cacheKey := fmt.Sprintf("search:%s:%s:%d:%d", tab, strings.ToLower(q), page, limit)
 	if cachedData, found := gw.cache.Get(cacheKey); found {
 		w.Header().Set("X-Cache", "HIT")
 		w.Write(cachedData)
 		return
 	}
 
-	// Check for Google-style Instant Answer / OneBox calculation or fact
+	// Check for Google/Brave-style Instant Answer / OneBox calculation or fact
 	instantAns := ResolveInstantAnswer(q)
 
 	startTime := time.Now()
-	res, err := gw.index.Search(q, page, limit)
+
+	// Adjust search query for specific tab if needed
+	searchQ := q
+	switch tab {
+	case "news":
+		searchQ = q + " news"
+	case "tech":
+		searchQ = q + " tech programming"
+	case "sports":
+		searchQ = q + " sports"
+	case "discussions":
+		searchQ = q + " reddit forum"
+	case "docs":
+		searchQ = q + " docs documentation"
+	}
+
+	res, err := gw.index.Search(searchQ, page, limit)
+	if (err != nil || res == nil || len(res.Results) == 0) && searchQ != q {
+		// Fallback to original query
+		res, err = gw.index.Search(q, page, limit)
+	}
 
 	// Pillar 1 & 2: Hybrid Web Federation & Auto-Indexing
 	// If local index returned fewer results than requested, or lacks strong matches,
@@ -81,8 +106,13 @@ func (gw *APIGateway) handleSearch(w http.ResponseWriter, r *http.Request) {
 			needed = 5
 		}
 
-		fmt.Printf("🌐 [Findra Gateway] Supplementing query %q with Worldwide Web Discovery (needed=%d)...\n", q, needed)
-		liveItems, liveErr := gw.liveSearch.DiscoverLiveWeb(q, needed)
+		liveTargetQ := q
+		if tab != "all" {
+			liveTargetQ = searchQ
+		}
+
+		fmt.Printf("🌐 [Findra Gateway] Supplementing tab=%s query %q with Worldwide Web Discovery (needed=%d)...\n", tab, liveTargetQ, needed)
+		liveItems, liveErr := gw.liveSearch.DiscoverLiveWeb(liveTargetQ, needed)
 		if liveErr == nil && len(liveItems) > 0 {
 			if res == nil {
 				res = &SearchResponse{

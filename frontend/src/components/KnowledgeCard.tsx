@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, ExternalLink, Globe, CheckCircle2, Sparkles } from 'lucide-react';
+import { ExternalLink, Globe, Sparkles } from 'lucide-react';
 import { KnowledgePanel, SearchResultItem } from '../types';
 
 interface Props {
@@ -17,26 +17,26 @@ export const KnowledgeCard: React.FC<Props> = ({
 }) => {
   if (!panel && !topResult) return null;
 
-  // If a rich Google/Whoogle Knowledge Panel is present
+  // Rich Knowledge Panel
   if (panel) {
     return (
-      <aside className="w-80 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a1a1e] shadow-sm hidden lg:block text-left sticky top-24 self-start">
+      <aside className="w-80 p-5 rounded-2xl border border-slate-200 dark:border-[#2e3245] bg-white dark:bg-[#212330] shadow-sm hidden lg:block text-left sticky top-24 self-start">
         {/* Header & Source Badge */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/80 mb-3.5">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#2e3245] mb-3.5">
           <div className="flex items-center space-x-1.5">
-            <Sparkles className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <Sparkles className="w-4 h-4 text-[#fb542b]" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9ea4b6]">
               Knowledge Graph
             </span>
           </div>
-          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
+          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-orange-50 dark:bg-[#fb542b]/15 text-[#fb542b] border border-orange-200 dark:border-[#fb542b]/30">
             Verified Entity
           </span>
         </div>
 
         {/* Thumbnail Image if available */}
         {panel.image_url && (
-          <div className="mb-4 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center p-2 max-h-48">
+          <div className="mb-4 rounded-xl overflow-hidden bg-slate-50 dark:bg-[#191b26] border border-slate-100 dark:border-[#2e3245] flex items-center justify-center p-2 max-h-48">
             <img
               src={panel.image_url}
               alt={panel.title}
@@ -47,29 +47,29 @@ export const KnowledgeCard: React.FC<Props> = ({
         )}
 
         {/* Entity Title & Subtitle */}
-        <h3 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 leading-tight mb-0.5">
+        <h3 className="text-xl font-bold text-slate-900 dark:text-[#f0f2f5] leading-tight mb-0.5">
           {panel.title}
         </h3>
         {panel.type && (
-          <p className="text-xs font-semibold text-violet-700 dark:text-violet-400 mb-3">
+          <p className="text-xs font-semibold text-[#fb542b] mb-3">
             {panel.type}
           </p>
         )}
 
         {/* Entity Description */}
         {panel.description && (
-          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-4 line-clamp-4">
+          <p className="text-xs text-slate-600 dark:text-[#9ea4b6] leading-relaxed mb-4 line-clamp-4">
             {panel.description}
           </p>
         )}
 
         {/* Attributes Grid (CEO, Founders, Founded, etc.) */}
         {panel.attributes && Object.keys(panel.attributes).length > 0 && (
-          <div className="bg-slate-50 dark:bg-[#222228] p-3 rounded-xl mb-4 space-y-2 text-xs border border-slate-100 dark:border-slate-800/60">
+          <div className="bg-slate-50 dark:bg-[#191b26] p-3 rounded-xl mb-4 space-y-2 text-xs border border-slate-100 dark:border-[#2e3245]">
             {Object.entries(panel.attributes).map(([key, val]) => (
               <div key={key} className="flex justify-between items-start gap-2">
-                <span className="text-slate-400 dark:text-slate-500 font-medium">{key}</span>
-                <span className="text-slate-800 dark:text-slate-200 font-semibold text-right max-w-[170px] truncate">
+                <span className="text-slate-400 dark:text-[#71788e] font-medium">{key}</span>
+                <span className="text-slate-800 dark:text-[#f0f2f5] font-semibold text-right max-w-[170px] truncate">
                   {val}
                 </span>
               </div>
@@ -83,7 +83,7 @@ export const KnowledgeCard: React.FC<Props> = ({
             <div className="flex items-center gap-1.5 w-full">
               <a
                 href={panel.website}
-                className="flex-1 flex items-center justify-center py-2 px-3 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors cursor-pointer shadow-sm"
+                className="flex-1 flex items-center justify-center py-2 px-3 text-xs font-semibold text-white bg-[#fb542b] hover:bg-[#e03e17] rounded-xl transition-colors cursor-pointer shadow-sm"
               >
                 <Globe className="w-3.5 h-3.5 mr-1.5" />
                 <span>Visit Official Website</span>
@@ -92,107 +92,67 @@ export const KnowledgeCard: React.FC<Props> = ({
                 <button
                   onClick={() => onOpenInBrowser(panel.website!, panel.title)}
                   title="Preview inside Findra"
-                  className="px-2.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors flex items-center justify-center border border-slate-200 dark:border-slate-700 flex-shrink-0 cursor-pointer"
+                  className="px-2.5 py-2 text-xs font-medium text-slate-700 dark:text-[#f0f2f5] bg-slate-100 dark:bg-[#2c3042] hover:bg-slate-200 dark:hover:bg-[#34384d] rounded-xl transition-colors flex items-center justify-center border border-slate-200 dark:border-[#2e3245] flex-shrink-0 cursor-pointer"
                 >
                   <span className="hidden sm:inline mr-1">Preview</span>
-                  <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <Globe className="w-3.5 h-3.5 text-[#fb542b]" />
                 </button>
               )}
             </div>
           )}
 
           {panel.wikipedia_url && (
-            <div className="flex items-center gap-1.5 w-full">
-              <a
-                href={panel.wikipedia_url}
-                onClick={(e) => {
-                  if (typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron')) {
-                    return; // Navigate in the SAME tab!
-                  }
-                  if (onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
-                    e.preventDefault();
-                    onOpenInBrowser(panel.wikipedia_url!, panel.title + ' (Wikipedia)');
-                  }
-                }}
-                className="flex-1 flex items-center justify-center py-1.5 px-3 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer"
-              >
-                <BookOpen className="w-3.5 h-3.5 mr-1.5" />
-                <span>Read on Wikipedia</span>
-              </a>
-              <a
-                href={panel.wikipedia_url}
-                title="Open Wikipedia"
-                className="p-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center justify-center"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
+            <a
+              href={panel.wikipedia_url}
+              onClick={(e) => {
+                if (onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
+                  e.preventDefault();
+                  onOpenInBrowser(panel.wikipedia_url!, `${panel.title} - Wikipedia`);
+                }
+              }}
+              className="w-full flex items-center justify-center py-2 px-3 text-xs font-medium text-slate-700 dark:text-[#f0f2f5] bg-slate-100 dark:bg-[#2c3042] hover:bg-slate-200 dark:hover:bg-[#34384d] rounded-xl transition-colors cursor-pointer border border-slate-200 dark:border-[#2e3245]"
+            >
+              <span>Read more on Wikipedia</span>
+              <ExternalLink className="w-3 h-3 ml-1.5" />
+            </a>
           )}
         </div>
       </aside>
     );
   }
 
-  // Fallback to top result authority signals
+  // Fallback: Smart Entity Card from Top Result
   if (!topResult) return null;
 
   return (
-    <aside className="w-80 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a1a1d] shadow-sm hidden lg:block text-left sticky top-24 self-start">
-      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
-        <div className="flex items-center space-x-2">
-          <BookOpen className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Knowledge Overview
-          </span>
-        </div>
-        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center font-medium">
-          <CheckCircle2 className="w-3 h-3 mr-1" />
-          Verified Index
+    <aside className="w-80 p-5 rounded-2xl border border-slate-200 dark:border-[#2e3245] bg-white dark:bg-[#212330] shadow-sm hidden lg:block text-left sticky top-24 self-start">
+      <div className="flex items-center space-x-1.5 pb-2.5 border-b border-slate-100 dark:border-[#2e3245] mb-3">
+        <Sparkles className="w-4 h-4 text-[#fb542b]" />
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9ea4b6]">
+          About Query
         </span>
       </div>
 
-      <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">
-        {topResult.title}
+      <h3 className="text-lg font-bold text-slate-900 dark:text-[#f0f2f5] mb-1 truncate">
+        {topResult.title || query}
       </h3>
+      <p className="text-xs text-slate-500 dark:text-[#9ea4b6] mb-3 truncate">
+        {topResult.domain}
+      </p>
 
-      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-4 line-clamp-6">
+      <p className="text-xs text-slate-600 dark:text-[#9ea4b6] leading-relaxed mb-4 line-clamp-5">
         {topResult.snippet}
       </p>
 
-      <div className="bg-slate-50 dark:bg-[#222226] p-3 rounded-xl mb-4 space-y-1.5 text-xs">
-        <div className="flex justify-between">
-          <span className="text-slate-400">Authority Rank</span>
-          <span className="font-semibold text-blue-600 dark:text-blue-400">
-            {(topResult.pagerank_score * 100).toFixed(1)}%
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-slate-400">Relevance (BM25)</span>
-          <span className="font-semibold text-slate-700 dark:text-slate-200">
-            {topResult.bm25_score.toFixed(2)}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-slate-400">Source Domain</span>
-          <span className="font-medium text-slate-600 dark:text-slate-300 truncate max-w-[140px]">
-            {topResult.domain}
-          </span>
-        </div>
+      <div className="space-y-2">
+        <a
+          href={topResult.url}
+          className="w-full flex items-center justify-center py-2 px-3 text-xs font-semibold text-white bg-[#fb542b] hover:bg-[#e03e17] rounded-xl transition-colors cursor-pointer shadow-sm"
+        >
+          <Globe className="w-3.5 h-3.5 mr-1.5" />
+          <span>Visit Top Source</span>
+        </a>
       </div>
-
-      <a
-        href={topResult.url}
-        onClick={(e) => {
-          if (onOpenInBrowser && !e.metaKey && !e.ctrlKey) {
-            e.preventDefault();
-            onOpenInBrowser(topResult.url, topResult.title);
-          }
-        }}
-        className="w-full flex items-center justify-center py-2 px-3 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer"
-      >
-        <span>Open in Findra</span>
-        <ExternalLink className="w-3 h-3 ml-1.5" />
-      </a>
     </aside>
   );
 };

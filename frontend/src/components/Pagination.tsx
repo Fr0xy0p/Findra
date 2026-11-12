@@ -25,51 +25,25 @@ export const Pagination: React.FC<Props> = ({ currentPage, totalPages, onPageCha
 
   return (
     <nav className="flex flex-col items-center my-10 max-w-2xl">
-      {/* Playful Google/Brave style Logo lettering */}
-      <div className="flex items-center text-3xl font-bold tracking-tight mb-4 select-none">
-        <span className="text-[#4285F4]">F</span>
-        {pages.map((p) => (
-          <span
-            key={p}
-            onClick={() => onPageChange(p)}
-            className={`cursor-pointer transition-transform hover:scale-125 px-0.5 ${
-              p === currentPage
-                ? 'text-[#EA4335] underline underline-offset-4'
-                : p % 3 === 0
-                ? 'text-[#FBBC05]'
-                : p % 2 === 0
-                ? 'text-[#34A853]'
-                : 'text-[#4285F4]'
-            }`}
-          >
-            i
-          </span>
-        ))}
-        <span className="text-[#FBBC05]">n</span>
-        <span className="text-[#4285F4]">d</span>
-        <span className="text-[#34A853]">r</span>
-        <span className="text-[#EA4335]">a</span>
-      </div>
-
-      {/* Numerical buttons */}
-      <div className="flex items-center space-x-1">
+      {/* Numerical buttons - Brave Search Style */}
+      <div className="flex items-center space-x-1.5 bg-white dark:bg-[#212330] p-1.5 rounded-2xl border border-slate-200 dark:border-[#2e3245] shadow-sm">
         <button
           disabled={currentPage === 1}
           onClick={() => onPageChange(currentPage - 1)}
-          className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+          className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-[#9ea4b6] dark:hover:text-[#f0f2f5] hover:bg-slate-100 dark:hover:bg-[#2c3042] disabled:opacity-25 disabled:pointer-events-none transition-colors cursor-pointer"
           title="Previous page"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="w-4 h-4" />
         </button>
 
         {pages.map((p) => (
           <button
             key={p}
             onClick={() => onPageChange(p)}
-            className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
+            className={`w-9 h-9 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               p === currentPage
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'bg-[#fb542b] text-white shadow-sm'
+                : 'text-slate-700 dark:text-[#9ea4b6] hover:text-slate-900 dark:hover:text-[#f0f2f5] hover:bg-slate-100 dark:hover:bg-[#2c3042]'
             }`}
           >
             {p}
@@ -79,13 +53,12 @@ export const Pagination: React.FC<Props> = ({ currentPage, totalPages, onPageCha
         <button
           disabled={currentPage === totalPages}
           onClick={() => onPageChange(currentPage + 1)}
-          className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+          className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-[#9ea4b6] dark:hover:text-[#f0f2f5] hover:bg-slate-100 dark:hover:bg-[#2c3042] disabled:opacity-25 disabled:pointer-events-none transition-colors cursor-pointer"
           title="Next page"
         >
-          <ChevronRight className="w-5 h-5" />
+          <ChevronRight className="w-4 h-4" />
         </button>
       </div>
     </nav>
   );
 };
-

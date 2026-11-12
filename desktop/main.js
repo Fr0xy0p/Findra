@@ -5,6 +5,22 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const { ElectronBlocker, fullLists } = require('@ghostery/adblocker-electron');
 
+// ---------------- GLOBAL ERROR SHIELD ----------------
+// Prevent uncaught exceptions (such as "Object has been destroyed" during window/tab close or async teardown)
+// from ever popping fatal native error dialogs in Findra
+process.on('uncaughtException', (err) => {
+  const msg = err && err.message ? err.message : String(err);
+  if (msg.includes('Object has been destroyed') || msg.includes('destroyed') || msg.includes('WebContents')) {
+    // Teardown race condition safely swallowed
+    return;
+  }
+  console.warn('[Findra Main Process] Safely handled uncaught exception:', msg);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.warn('[Findra Main Process] Safely handled unhandled rejection:', reason);
+});
+
 // Enable native trackpad swipe history navigation gestures (macOS two-finger swipe)
 app.commandLine.appendSwitch('enable-features', 'TouchpadOverscrollHistoryNavigation');
 app.commandLine.appendSwitch('overscroll-history-navigation', '1');
@@ -83,6 +99,29 @@ const SIDE_PANEL_WIDTH = 440;
 const DEFAULT_CLOUD_URL = 'https://findra-q4pt.onrender.com';
 let configPath = '';
 
+// Safe liveness check helpers
+function isWindowAlive(win) {
+  try {
+    return Boolean(win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed());
+  } catch (e) {
+    return false;
+  }
+}
+
+function isTabAlive(tab) {
+  try {
+    return Boolean(
+      tab &&
+      tab.view &&
+      (typeof tab.view.isDestroyed === 'function' ? !tab.view.isDestroyed() : true) &&
+      tab.view.webContents &&
+      !tab.view.webContents.isDestroyed()
+    );
+  } catch (e) {
+    return false;
+  }
+}
+
 function getConfigPath() {
   if (!configPath) {
     try {
@@ -125,8 +164,13 @@ function initFindraEndpoint() {
 }
 
 function getBoundsForView(isSidePanel = false) {
-  if (!mainWindow) return { x: 0, y: 0, width: 0, height: 0 };
-  const bounds = mainWindow.getContentBounds();
+  if (!isWindowAlive(mainWindow)) return { x: 0, y: 0, width: 0, height: 0 };
+  let bounds;
+  try {
+    bounds = mainWindow.getContentBounds();
+  } catch (e) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
   const contentHeight = Math.max(bounds.height - TOOLBAR_HEIGHT, 100);
 
   if (isSidePanel) {
@@ -148,69 +192,93 @@ function getBoundsForView(isSidePanel = false) {
 }
 
 function updateLayout() {
-  if (!mainWindow) return;
+  if (!isWindowAlive(mainWindow)) return;
 
   // Resize side panel if open
-  if (sidePanelView) {
-    if (isSidePanelOpen) {
-      sidePanelView.setBounds(getBoundsForView(true));
-      sidePanelView.setVisible(true);
-    } else {
-      sidePanelView.setVisible(false);
-      sidePanelView.setBounds({ x: -9999, y: -9999, width: 0, height: 0 });
-    }
+  if (sidePanelView && !sidePanelView.isDestroyed?.() && sidePanelView.webContents && !sidePanelView.webContents.isDestroyed()) {
+    try {
+      if (isSidePanelOpen) {
+        sidePanelView.setBounds(getBoundsForView(true));
+        sidePanelView.setVisible(true);
+      } else {
+        sidePanelView.setVisible(false);
+        sidePanelView.setBounds({ x: -9999, y: -9999, width: 0, height: 0 });
+      }
+    } catch (e) {}
   }
 
   // Resize all tabs
   const mainBounds = getBoundsForView(false);
   for (const [id, tab] of tabs.entries()) {
-    if (id === activeTabId) {
-      tab.view.setBounds(mainBounds);
-      tab.view.setVisible(true);
-    } else {
-      tab.view.setVisible(false);
-      tab.view.setBounds({ x: -9999, y: -9999, width: 0, height: 0 });
-    }
+    if (!isTabAlive(tab)) continue;
+    try {
+      if (id === activeTabId) {
+        tab.view.setBounds(mainBounds);
+        tab.view.setVisible(true);
+      } else {
+        tab.view.setVisible(false);
+        tab.view.setBounds({ x: -9999, y: -9999, width: 0, height: 0 });
+      }
+    } catch (e) {}
   }
 }
 
 function broadcastTabState() {
-  if (!mainWindow) return;
+  if (!isWindowAlive(mainWindow)) return;
+
   const tabList = [];
   for (const [id, tab] of tabs.entries()) {
+    if (!isTabAlive(tab)) continue;
     tabList.push({
       id,
-      title: tab.title,
-      url: tab.url,
+      title: tab.title || 'Untitled',
+      url: tab.url || '',
       favicon: tab.favicon,
-      isLoading: tab.isLoading,
-      isAudioPlaying: tab.isAudioPlaying,
+      isLoading: Boolean(tab.isLoading),
+      isAudioPlaying: Boolean(tab.isAudioPlaying),
       isActive: id === activeTabId
     });
   }
 
-  mainWindow.webContents.send('tabs:updated', {
-    tabs: tabList,
-    activeTabId,
-    isSidePanelOpen
-  });
+  try {
+    if (isWindowAlive(mainWindow)) {
+      mainWindow.webContents.send('tabs:updated', {
+        tabs: tabList,
+        activeTabId,
+        isSidePanelOpen
+      });
+    }
+  } catch (e) {
+    return;
+  }
 
   const activeTab = tabs.get(activeTabId);
-  if (activeTab) {
+  if (isTabAlive(activeTab)) {
     const wc = activeTab.view.webContents;
-    const canBack = wc.navigationHistory ? wc.navigationHistory.canGoBack() : wc.canGoBack();
-    const canFwd = wc.navigationHistory ? wc.navigationHistory.canGoForward() : wc.canGoForward();
-    mainWindow.webContents.send('navigation:state', {
-      url: activeTab.url,
-      title: activeTab.title,
-      canGoBack: canBack,
-      canGoForward: canFwd,
-      isLoading: activeTab.isLoading
-    });
+    let canBack = false;
+    let canFwd = false;
+    try {
+      canBack = wc.navigationHistory ? wc.navigationHistory.canGoBack() : wc.canGoBack();
+      canFwd = wc.navigationHistory ? wc.navigationHistory.canGoForward() : wc.canGoForward();
+    } catch (e) {}
+
+    try {
+      if (isWindowAlive(mainWindow)) {
+        mainWindow.webContents.send('navigation:state', {
+          url: activeTab.url || '',
+          title: activeTab.title || 'Untitled',
+          canGoBack: canBack,
+          canGoForward: canFwd,
+          isLoading: Boolean(activeTab.isLoading)
+        });
+      }
+    } catch (e) {}
   }
 }
 
 function createTab(initialUrl = findraBaseUrl) {
+  if (!isWindowAlive(mainWindow)) return null;
+
   const id = `tab-${nextTabId++}`;
 
   const view = new WebContentsView({
@@ -228,7 +296,9 @@ function createTab(initialUrl = findraBaseUrl) {
   // Use clean standard Google Chrome User-Agent to ensure seamless Google Account login
   view.webContents.setUserAgent(getCleanChromeUA());
 
-  mainWindow.contentView.addChildView(view);
+  try {
+    mainWindow.contentView.addChildView(view);
+  } catch (e) {}
 
   const tab = {
     id,
@@ -242,43 +312,53 @@ function createTab(initialUrl = findraBaseUrl) {
 
   tabs.set(id, tab);
 
-  // Hook tab webContents events
-  view.webContents.on('did-start-loading', () => {
+  const wc = view.webContents;
+
+  // Hook tab webContents events safely
+  wc.on('did-start-loading', () => {
+    if (!isTabAlive(tab) || !isWindowAlive(mainWindow)) return;
     tab.isLoading = true;
     broadcastTabState();
   });
 
-  view.webContents.on('did-stop-loading', () => {
+  wc.on('did-stop-loading', () => {
+    if (!isTabAlive(tab) || !isWindowAlive(mainWindow)) return;
     tab.isLoading = false;
-    tab.url = view.webContents.getURL();
-    tab.title = view.webContents.getTitle() || 'Untitled';
+    try {
+      tab.url = wc.getURL();
+      tab.title = wc.getTitle() || 'Untitled';
+    } catch (e) {}
     broadcastTabState();
   });
 
-  view.webContents.on('page-title-updated', (_e, title) => {
+  wc.on('page-title-updated', (_e, title) => {
+    if (!isTabAlive(tab) || !isWindowAlive(mainWindow)) return;
     tab.title = title || 'Untitled';
     broadcastTabState();
   });
 
-  view.webContents.on('page-favicon-updated', (_e, favicons) => {
+  wc.on('page-favicon-updated', (_e, favicons) => {
+    if (!isTabAlive(tab) || !isWindowAlive(mainWindow)) return;
     if (favicons && favicons.length > 0) {
       tab.favicon = favicons[0];
       broadcastTabState();
     }
   });
 
-  view.webContents.on('media-started-playing', () => {
+  wc.on('media-started-playing', () => {
+    if (!isTabAlive(tab) || !isWindowAlive(mainWindow)) return;
     tab.isAudioPlaying = true;
     broadcastTabState();
   });
 
-  view.webContents.on('media-paused', () => {
+  wc.on('media-paused', () => {
+    if (!isTabAlive(tab) || !isWindowAlive(mainWindow)) return;
     tab.isAudioPlaying = false;
     broadcastTabState();
   });
 
   // Handle popup windows and OAuth sign-in flows (Google, Apple, Microsoft, GitHub, etc.)
-  view.webContents.setWindowOpenHandler(({ url, disposition, features }) => {
+  wc.setWindowOpenHandler(({ url, disposition, features }) => {
     const isAuth = url.includes('accounts.google.com') ||
                    url.includes('/oauth') ||
                    url.includes('/auth') ||
@@ -312,12 +392,18 @@ function createTab(initialUrl = findraBaseUrl) {
     }
 
     // Normal link target="_blank" navigates in the current tab
-    view.webContents.loadURL(url);
+    try {
+      if (!wc.isDestroyed()) {
+        wc.loadURL(url);
+      }
+    } catch (e) {}
     return { action: 'deny' };
   });
 
   // Load URL
-  view.webContents.loadURL(initialUrl);
+  try {
+    wc.loadURL(initialUrl);
+  } catch (e) {}
 
   // Switch to this new tab
   switchTab(id);
@@ -326,15 +412,20 @@ function createTab(initialUrl = findraBaseUrl) {
 
 function switchTab(id) {
   if (!tabs.has(id)) return;
+  if (!isWindowAlive(mainWindow)) return;
   activeTabId = id;
   const activeTab = tabs.get(id);
+  if (!isTabAlive(activeTab)) return;
 
-  // Ensure active tab view is on top
-  mainWindow.contentView.addChildView(activeTab.view);
+  try {
+    mainWindow.contentView.addChildView(activeTab.view);
+  } catch (e) {}
 
   // Bring side panel to front if open
-  if (isSidePanelOpen && sidePanelView) {
-    mainWindow.contentView.addChildView(sidePanelView);
+  if (isSidePanelOpen && sidePanelView && !sidePanelView.isDestroyed?.()) {
+    try {
+      mainWindow.contentView.addChildView(sidePanelView);
+    } catch (e) {}
   }
 
   updateLayout();
@@ -344,17 +435,31 @@ function switchTab(id) {
 function closeTab(id) {
   if (!tabs.has(id)) return;
   const tab = tabs.get(id);
-
-  mainWindow.contentView.removeChildView(tab.view);
-  tab.view.webContents.close();
   tabs.delete(id);
+
+  if (tab && tab.view) {
+    try {
+      if (isWindowAlive(mainWindow) && mainWindow.contentView) {
+        mainWindow.contentView.removeChildView(tab.view);
+      }
+    } catch (e) {}
+
+    try {
+      if (tab.view.webContents && !tab.view.webContents.isDestroyed()) {
+        tab.view.webContents.removeAllListeners();
+        tab.view.webContents.close();
+      }
+    } catch (e) {}
+  }
 
   if (activeTabId === id) {
     const remainingIds = Array.from(tabs.keys());
     if (remainingIds.length > 0) {
       switchTab(remainingIds[remainingIds.length - 1]);
     } else {
-      createTab(findraBaseUrl);
+      if (isWindowAlive(mainWindow)) {
+        createTab(findraBaseUrl);
+      }
     }
   } else {
     broadcastTabState();
@@ -363,9 +468,9 @@ function closeTab(id) {
 
 function navigateActiveTab(input) {
   const activeTab = tabs.get(activeTabId);
-  if (!activeTab) return;
+  if (!isTabAlive(activeTab)) return;
 
-  let target = input.trim();
+  let target = (input || '').trim();
   if (!target) return;
 
   if (target.startsWith('http://') || target.startsWith('https://')) {
@@ -378,26 +483,31 @@ function navigateActiveTab(input) {
   }
 
   activeTab.url = target;
-  activeTab.view.webContents.loadURL(target);
+  try {
+    activeTab.view.webContents.loadURL(target);
+  } catch (e) {}
 }
 
 function toggleSidePanel() {
+  if (!isWindowAlive(mainWindow)) return;
   isSidePanelOpen = !isSidePanelOpen;
 
-  if (isSidePanelOpen) {
-    if (!sidePanelView) {
-      sidePanelView = new WebContentsView({
-        webPreferences: {
-          partition: 'persist:findra-sidepanel',
-          contextIsolation: true
-        }
-      });
-      mainWindow.contentView.addChildView(sidePanelView);
-      sidePanelView.webContents.loadURL(findraBaseUrl);
-    } else {
-      mainWindow.contentView.addChildView(sidePanelView);
+  try {
+    if (isSidePanelOpen) {
+      if (!sidePanelView || sidePanelView.isDestroyed?.() || !sidePanelView.webContents || sidePanelView.webContents.isDestroyed()) {
+        sidePanelView = new WebContentsView({
+          webPreferences: {
+            partition: 'persist:findra-sidepanel',
+            contextIsolation: true
+          }
+        });
+        mainWindow.contentView.addChildView(sidePanelView);
+        sidePanelView.webContents.loadURL(findraBaseUrl);
+      } else {
+        mainWindow.contentView.addChildView(sidePanelView);
+      }
     }
-  }
+  } catch (e) {}
 
   updateLayout();
   broadcastTabState();
@@ -414,7 +524,7 @@ function setupApplicationMenu() {
           label: 'Findra Cloud Settings...',
           accelerator: 'CmdOrCtrl+,',
           click: () => {
-            if (mainWindow) {
+            if (isWindowAlive(mainWindow)) {
               mainWindow.webContents.send('show:cloudConfig', findraBaseUrl);
             }
           }
@@ -465,7 +575,9 @@ function setupApplicationMenu() {
           label: 'Focus Address Bar',
           accelerator: 'CmdOrCtrl+L',
           click: () => {
-            if (mainWindow) mainWindow.webContents.send('shortcut:focusOmnibox');
+            if (isWindowAlive(mainWindow)) {
+              mainWindow.webContents.send('shortcut:focusOmnibox');
+            }
           }
         },
         {
@@ -478,7 +590,9 @@ function setupApplicationMenu() {
           accelerator: 'CmdOrCtrl+R',
           click: () => {
             const tab = tabs.get(activeTabId);
-            if (tab) tab.view.webContents.reload();
+            if (isTabAlive(tab)) {
+              try { tab.view.webContents.reload(); } catch (e) {}
+            }
           }
         },
         { type: 'separator' },
@@ -497,10 +611,12 @@ function setupApplicationMenu() {
           accelerator: 'CmdOrCtrl+[',
           click: () => {
             const tab = tabs.get(activeTabId);
-            if (!tab) return;
+            if (!isTabAlive(tab)) return;
             const wc = tab.view.webContents;
-            if (wc.navigationHistory && wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
-            else if (wc.canGoBack()) wc.goBack();
+            try {
+              if (wc.navigationHistory && wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
+              else if (wc.canGoBack()) wc.goBack();
+            } catch (e) {}
           }
         },
         {
@@ -508,10 +624,12 @@ function setupApplicationMenu() {
           accelerator: 'CmdOrCtrl+]',
           click: () => {
             const tab = tabs.get(activeTabId);
-            if (!tab) return;
+            if (!isTabAlive(tab)) return;
             const wc = tab.view.webContents;
-            if (wc.navigationHistory && wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
-            else if (wc.canGoForward()) wc.goForward();
+            try {
+              if (wc.navigationHistory && wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
+              else if (wc.canGoForward()) wc.goForward();
+            } catch (e) {}
           }
         }
       ]
@@ -522,80 +640,21 @@ function setupApplicationMenu() {
   Menu.setApplicationMenu(menu);
 }
 
-function createWindow() {
-  initFindraEndpoint();
+let ipcHandlersInitialized = false;
 
-  const isMac = process.platform === 'darwin';
+function setupIpcHandlers() {
+  if (ipcHandlersInitialized) return;
+  ipcHandlersInitialized = true;
 
-  const windowOptions = {
-    width: 1360,
-    height: 880,
-    minWidth: 800,
-    minHeight: 500,
-    backgroundColor: '#121216',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  };
-
-  if (isMac) {
-    windowOptions.titleBarStyle = 'hiddenInset';
-    windowOptions.trafficLightPosition = { x: 14, y: 14 };
-  } else {
-    // Windows & Linux: native titleBarOverlay with dark controls matching tab row
-    windowOptions.titleBarStyle = 'hidden';
-    windowOptions.titleBarOverlay = {
-      color: '#111116',
-      symbolColor: '#cbd5e1',
-      height: 42
-    };
-  }
-
-  mainWindow = new BrowserWindow(windowOptions);
-
-  mainWindow.loadFile(path.join(__dirname, 'ui', 'index.html'));
-
-  mainWindow.on('resize', updateLayout);
-
-  // Handle macOS native 3-finger swipe gesture
-  mainWindow.on('swipe', (_event, direction) => {
-    const tab = tabs.get(activeTabId);
-    if (!tab) return;
-    const wc = tab.view.webContents;
-    const history = wc.navigationHistory;
-    if (direction === 'right') { // Swipe right -> Back
-      if (history && history.canGoBack()) history.goBack();
-      else if (wc.canGoBack()) wc.goBack();
-    } else if (direction === 'left') { // Swipe left -> Forward
-      if (history && history.canGoForward()) history.goForward();
-      else if (wc.canGoForward()) wc.goForward();
-    }
-  });
-
-  // Handle hardware mouse/trackpad back & forward commands
-  mainWindow.on('app-command', (_event, cmd) => {
-    const tab = tabs.get(activeTabId);
-    if (!tab) return;
-    const wc = tab.view.webContents;
-    const history = wc.navigationHistory;
-    if (cmd === 'browser-backward') {
-      if (history && history.canGoBack()) history.goBack();
-      else if (wc.canGoBack()) wc.goBack();
-    } else if (cmd === 'browser-forward') {
-      if (history && history.canGoForward()) history.goForward();
-      else if (wc.canGoForward()) wc.goForward();
-    }
-  });
-
-  // Handle trackpad two-finger horizontal swipe from tab content
+  // Trackpad two-finger horizontal swipe from tab content
   ipcMain.on('tab:gesture-back', (event) => {
     for (const [, tab] of tabs.entries()) {
-      if (tab.view.webContents === event.sender) {
-        const history = tab.view.webContents.navigationHistory;
-        if (history && history.canGoBack()) history.goBack();
-        else if (tab.view.webContents.canGoBack()) tab.view.webContents.goBack();
+      if (isTabAlive(tab) && tab.view.webContents === event.sender) {
+        try {
+          const history = tab.view.webContents.navigationHistory;
+          if (history && history.canGoBack()) history.goBack();
+          else if (tab.view.webContents.canGoBack()) tab.view.webContents.goBack();
+        } catch (e) {}
         return;
       }
     }
@@ -603,10 +662,12 @@ function createWindow() {
 
   ipcMain.on('tab:gesture-forward', (event) => {
     for (const [, tab] of tabs.entries()) {
-      if (tab.view.webContents === event.sender) {
-        const history = tab.view.webContents.navigationHistory;
-        if (history && history.canGoForward()) history.goForward();
-        else if (tab.view.webContents.canGoForward()) tab.view.webContents.goForward();
+      if (isTabAlive(tab) && tab.view.webContents === event.sender) {
+        try {
+          const history = tab.view.webContents.navigationHistory;
+          if (history && history.canGoForward()) history.goForward();
+          else if (tab.view.webContents.canGoForward()) tab.view.webContents.goForward();
+        } catch (e) {}
         return;
       }
     }
@@ -626,6 +687,7 @@ function createWindow() {
     }
   });
   ipcMain.on('browser:showTabContextMenu', (_e, { tabId }) => {
+    if (!isWindowAlive(mainWindow)) return;
     const contextMenu = Menu.buildFromTemplate([
       {
         label: 'New Tab',
@@ -637,7 +699,9 @@ function createWindow() {
         accelerator: 'CmdOrCtrl+R',
         click: () => {
           const tab = tabs.get(tabId);
-          if (tab) tab.view.webContents.reload();
+          if (isTabAlive(tab)) {
+            try { tab.view.webContents.reload(); } catch (e) {}
+          }
         }
       },
       {
@@ -662,26 +726,34 @@ function createWindow() {
         }
       }
     ]);
-    contextMenu.popup({ window: mainWindow });
+    try {
+      contextMenu.popup({ window: mainWindow });
+    } catch (e) {}
   });
   ipcMain.on('browser:navigate', (_e, url) => navigateActiveTab(url));
   ipcMain.on('browser:goBack', () => {
     const tab = tabs.get(activeTabId);
-    if (!tab) return;
+    if (!isTabAlive(tab)) return;
     const wc = tab.view.webContents;
-    if (wc.navigationHistory && wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
-    else if (wc.canGoBack()) wc.goBack();
+    try {
+      if (wc.navigationHistory && wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
+      else if (wc.canGoBack()) wc.goBack();
+    } catch (e) {}
   });
   ipcMain.on('browser:goForward', () => {
     const tab = tabs.get(activeTabId);
-    if (!tab) return;
+    if (!isTabAlive(tab)) return;
     const wc = tab.view.webContents;
-    if (wc.navigationHistory && wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
-    else if (wc.canGoForward()) wc.goForward();
+    try {
+      if (wc.navigationHistory && wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
+      else if (wc.canGoForward()) wc.goForward();
+    } catch (e) {}
   });
   ipcMain.on('browser:reload', () => {
     const tab = tabs.get(activeTabId);
-    if (tab) tab.view.webContents.reload();
+    if (isTabAlive(tab)) {
+      try { tab.view.webContents.reload(); } catch (e) {}
+    }
   });
   ipcMain.on('browser:goHome', () => navigateActiveTab(findraBaseUrl));
   ipcMain.on('browser:toggleSidePanel', toggleSidePanel);
@@ -695,9 +767,7 @@ function createWindow() {
         const data = await res.json();
         return data.suggestions || [];
       }
-    } catch (e) {
-      // fallback
-    }
+    } catch (e) {}
     return [];
   });
 
@@ -762,17 +832,106 @@ function createWindow() {
       }
     }
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('shield:stats', {
-        totalBlocked: totalBlockedAds,
-        enabled: isShieldEnabled,
-      });
+    if (isWindowAlive(mainWindow)) {
+      try {
+        mainWindow.webContents.send('shield:stats', {
+          totalBlocked: totalBlockedAds,
+          enabled: isShieldEnabled,
+        });
+      } catch (e) {}
     }
 
     return {
       enabled: isShieldEnabled,
       blockedCount: totalBlockedAds,
     };
+  });
+}
+
+function createWindow() {
+  initFindraEndpoint();
+
+  const isMac = process.platform === 'darwin';
+
+  const windowOptions = {
+    width: 1360,
+    height: 880,
+    minWidth: 800,
+    minHeight: 500,
+    backgroundColor: '#121216',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  };
+
+  if (isMac) {
+    windowOptions.titleBarStyle = 'hiddenInset';
+    windowOptions.trafficLightPosition = { x: 14, y: 14 };
+  } else {
+    // Windows & Linux: native titleBarOverlay with dark controls matching tab row
+    windowOptions.titleBarStyle = 'hidden';
+    windowOptions.titleBarOverlay = {
+      color: '#111116',
+      symbolColor: '#cbd5e1',
+      height: 42
+    };
+  }
+
+  mainWindow = new BrowserWindow(windowOptions);
+
+  mainWindow.loadFile(path.join(__dirname, 'ui', 'index.html'));
+
+  mainWindow.on('resize', updateLayout);
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+    for (const [, tab] of tabs.entries()) {
+      try {
+        if (tab && tab.view && tab.view.webContents && !tab.view.webContents.isDestroyed()) {
+          tab.view.webContents.removeAllListeners();
+          tab.view.webContents.close();
+        }
+      } catch (e) {}
+    }
+    tabs.clear();
+    activeTabId = null;
+    sidePanelView = null;
+  });
+
+  // Handle macOS native 3-finger swipe gesture
+  mainWindow.on('swipe', (_event, direction) => {
+    const tab = tabs.get(activeTabId);
+    if (!isTabAlive(tab)) return;
+    const wc = tab.view.webContents;
+    try {
+      const history = wc.navigationHistory;
+      if (direction === 'right') { // Swipe right -> Back
+        if (history && history.canGoBack()) history.goBack();
+        else if (wc.canGoBack()) wc.goBack();
+      } else if (direction === 'left') { // Swipe left -> Forward
+        if (history && history.canGoForward()) history.goForward();
+        else if (wc.canGoForward()) wc.goForward();
+      }
+    } catch (e) {}
+  });
+
+  // Handle hardware mouse/trackpad back & forward commands
+  mainWindow.on('app-command', (_event, cmd) => {
+    const tab = tabs.get(activeTabId);
+    if (!isTabAlive(tab)) return;
+    const wc = tab.view.webContents;
+    try {
+      const history = wc.navigationHistory;
+      if (cmd === 'browser-backward') {
+        if (history && history.canGoBack()) history.goBack();
+        else if (wc.canGoBack()) wc.goBack();
+      } else if (cmd === 'browser-forward') {
+        if (history && history.canGoForward()) history.goForward();
+        else if (wc.canGoForward()) wc.goForward();
+      }
+    } catch (e) {}
   });
 
   // Create initial tab once UI finishes loading
@@ -820,12 +979,14 @@ async function setupAdBlocker() {
 
     adBlocker.on('request-blocked', (request) => {
       totalBlockedAds++;
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('shield:stats', {
-          totalBlocked: totalBlockedAds,
-          enabled: isShieldEnabled,
-          url: request.url,
-        });
+      if (isWindowAlive(mainWindow)) {
+        try {
+          mainWindow.webContents.send('shield:stats', {
+            totalBlocked: totalBlockedAds,
+            enabled: isShieldEnabled,
+            url: request.url,
+          });
+        } catch (e) {}
       }
     });
   } catch (err) {
@@ -836,10 +997,13 @@ async function setupAdBlocker() {
 app.whenReady().then(() => {
   setupSessionPersistenceAndAuth();
   setupAdBlocker();
+  setupIpcHandlers();
   createWindow();
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
   });
 });
 
@@ -851,5 +1015,7 @@ app.on('before-quit', async () => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
 });
