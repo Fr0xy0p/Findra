@@ -137,7 +137,7 @@ function handleYouTubeVideoAdSkipper() {
   const isAdPlaying = player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting');
 
   if (isAdPlaying) {
-    // 1. SILENCE AUDIO IMMEDIATELY (Neither video nor audio of the ad is audible)
+    // 1. SILENCE AUDIO IMMEDIATELY & HIDE AD VISUALS (Neither video nor audio of the ad is present)
     if (!wasAdMutedByShield) {
       userWasMutedBeforeAd = Boolean(video.muted);
       video.muted = true;
@@ -146,39 +146,50 @@ function handleYouTubeVideoAdSkipper() {
       video.muted = true;
     }
 
-    // 2. SPEED UP AD TO MAXIMUM 16X SPEED
+    // Hide ad frames visually without unmounting the element or breaking the decoder
+    video.style.opacity = '0';
+
+    // 2. SPEED UP AD TO MAXIMUM 16X SPEED (Plays through a 5s countdown in 0.3s)
     try {
       video.playbackRate = 16.0;
     } catch (e) {}
 
-    // 3. JUMP NEAR END OF AD SEGMENT SAFELY
-    try {
-      if (isFinite(video.duration) && video.duration > 0 && !isNaN(video.currentTime)) {
-        if (video.currentTime < video.duration - 0.2) {
-          video.currentTime = video.duration - 0.1;
-        }
-      }
-    } catch (e) {}
+    // 3. ATTEMPT NATIVE PLAYER SKIP IF EXPOSED
+    if (typeof player.skipAd === 'function') {
+      try {
+        player.skipAd();
+      } catch (e) {}
+    }
 
-    // 4. INSTANTLY CLICK ANY SKIP BUTTON
+    // 4. INSTANTLY AUTO-CLICK ANY SKIP BUTTON AS SOON AS AVAILABLE
     const skipSelectors = [
       '.ytp-ad-skip-button',
       '.ytp-ad-skip-button-modern',
       '.ytp-skip-ad-button',
       '.ytp-ad-skip-button-slot button',
       'button.ytp-ad-skip-button-modern',
+      '.ytp-ad-skip-button-container button',
       '.ytp-ad-overlay-close-button',
+      'button[aria-label*="Skip"]',
+      'button[aria-label*="skip"]',
       '[id^="skip-button"] button'
     ];
     for (const sel of skipSelectors) {
       const btn = document.querySelector(sel);
-      if (btn && typeof btn.click === 'function') {
-        btn.click();
+      if (btn) {
+        if (typeof btn.click === 'function') {
+          btn.click();
+        }
+        try {
+          btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+        } catch (e) {}
         break;
       }
     }
   } else {
-    // Normal video playback: restore user volume and playback speed if previously muted for an ad
+    // Normal video playback: restore user volume, opacity, and normal 1x playback speed
+    video.style.opacity = '1';
+
     if (wasAdMutedByShield) {
       if (!userWasMutedBeforeAd) {
         video.muted = false;
@@ -187,6 +198,11 @@ function handleYouTubeVideoAdSkipper() {
         video.playbackRate = 1.0;
       } catch (e) {}
       wasAdMutedByShield = false;
+    }
+
+    // Ensure the main video resumes playing immediately without any buffer stall or pause
+    if (video.paused && video.readyState >= 2) {
+      video.play().catch(() => {});
     }
   }
 

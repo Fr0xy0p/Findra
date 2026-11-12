@@ -4,6 +4,7 @@ const http = require('http');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const { ElectronBlocker, fullLists } = require('@ghostery/adblocker-electron');
+const { parseFilters } = require('@ghostery/adblocker');
 
 // ---------------- GLOBAL ERROR SHIELD ----------------
 // Prevent uncaught exceptions (such as "Object has been destroyed" during window/tab close or async teardown)
@@ -977,8 +978,26 @@ async function setupAdBlocker() {
     console.log('🛡️ [Findra Shield] Initializing Ghostery & EasyList adblock engine...');
     adBlocker = await ElectronBlocker.fromLists(fetch, fullLists, {
       loadNetworkFilters: true,
+      loadExceptionFilters: true,
       loadCosmeticFilters: false,
     }, caching);
+
+    // Whitelist YouTube player telemetry to prevent YouTube's artificial 5-10s anti-adblock buffering penalty
+    try {
+      const YOUTUBE_EXCEPTION_RULES = `
+@@||youtube.com/api/stats/
+@@||youtube.com/pagead/
+@@||youtube.com/ptracking
+@@||youtube.com/youtubei/v1/player/ad_break
+@@||googlevideo.com/videoplayback
+`;
+      const { networkFilters } = parseFilters(YOUTUBE_EXCEPTION_RULES, adBlocker.config);
+      if (networkFilters && networkFilters.length > 0) {
+        adBlocker.update({ newNetworkFilters: networkFilters });
+      }
+    } catch (e) {
+      console.warn('[-] Could not append YouTube exception rules to adblocker:', e);
+    }
 
     if (isShieldEnabled) {
       adBlocker.enableBlockingInSession(session.defaultSession);
