@@ -116,113 +116,9 @@ if (document.readyState === 'loading') {
   injectCosmeticShield();
 }
 
-// ---------------- YOUTUBE COMPLETE AD BLOCK & ELIMINATION ENGINE ----------------
-// Intercepts YouTube's internal player APIs and fast-forwards/mutes any in-stream video ads
+// ---------------- YOUTUBE ACTIVE AD SKIPPER & AUTO-MUTER ----------------
+// Silently fast-forwards and mutes in-stream ads without breaking the native player or video stream
 
-const YOUTUBE_MAIN_WORLD_SHIELD = `
-(function() {
-  if (window.__findra_yt_shield_active) return;
-  window.__findra_yt_shield_active = true;
-
-  function stripAdsFromPlayerObj(obj) {
-    if (!obj || typeof obj !== 'object') return obj;
-    try {
-      if (obj.adPlacements) delete obj.adPlacements;
-      if (obj.adSlots) delete obj.adSlots;
-      if (obj.playerAds) delete obj.playerAds;
-      if (obj.adBreakHeartbeatParams) delete obj.adBreakHeartbeatParams;
-      if (obj.adTimeoutParams) delete obj.adTimeoutParams;
-    } catch(e) {}
-    return obj;
-  }
-
-  // 1. Intercept window.ytInitialPlayerResponse
-  let _initialResp = window.ytInitialPlayerResponse;
-  if (_initialResp) {
-    stripAdsFromPlayerObj(_initialResp);
-  }
-  try {
-    Object.defineProperty(window, 'ytInitialPlayerResponse', {
-      get: () => _initialResp,
-      set: (val) => {
-        _initialResp = stripAdsFromPlayerObj(val);
-      },
-      configurable: true,
-      enumerable: true
-    });
-  } catch(e) {}
-
-  // 2. Intercept window.fetch for /youtubei/v1/player
-  const origFetch = window.fetch;
-  window.fetch = async function(...args) {
-    const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
-    const res = await origFetch.apply(this, args);
-    if (typeof url === 'string' && url.includes('/youtubei/v1/player')) {
-      try {
-        const clone = res.clone();
-        const json = await clone.json();
-        const sanitized = stripAdsFromPlayerObj(json);
-        return new Response(JSON.stringify(sanitized), {
-          status: res.status,
-          statusText: res.statusText,
-          headers: res.headers
-        });
-      } catch(e) {
-        return res;
-      }
-    }
-    return res;
-  };
-
-  // 3. Intercept XMLHttpRequest for /youtubei/v1/player
-  const origOpen = XMLHttpRequest.prototype.open;
-  const origSend = XMLHttpRequest.prototype.send;
-  XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-    this._findraUrl = url;
-    return origOpen.apply(this, [method, url, ...rest]);
-  };
-  XMLHttpRequest.prototype.send = function(...args) {
-    if (this._findraUrl && typeof this._findraUrl === 'string' && this._findraUrl.includes('/youtubei/v1/player')) {
-      this.addEventListener('readystatechange', function() {
-        if (this.readyState === 4 && this.status === 200) {
-          try {
-            const data = JSON.parse(this.responseText);
-            const sanitized = stripAdsFromPlayerObj(data);
-            Object.defineProperty(this, 'responseText', { value: JSON.stringify(sanitized), configurable: true });
-            Object.defineProperty(this, 'response', { value: JSON.stringify(sanitized), configurable: true });
-          } catch(e) {}
-        }
-      });
-    }
-    return origSend.apply(this, args);
-  };
-})();
-`;
-
-function injectMainWorldShield() {
-  const host = window.location.hostname || '';
-  if (!host.includes('youtube.com')) return;
-
-  try {
-    const script = document.createElement('script');
-    script.id = 'findra-yt-player-shield';
-    script.textContent = YOUTUBE_MAIN_WORLD_SHIELD;
-    const target = document.head || document.documentElement;
-    if (target) {
-      target.appendChild(script);
-      script.remove();
-    } else {
-      document.addEventListener('DOMContentLoaded', () => {
-        (document.head || document.documentElement).appendChild(script);
-        script.remove();
-      }, { once: true });
-    }
-  } catch (e) {}
-}
-
-injectMainWorldShield();
-
-// Active Real-Time Video Ad Skipper & Auto-Muter
 let wasAdMutedByShield = false;
 let userWasMutedBeforeAd = false;
 
@@ -231,16 +127,17 @@ function handleYouTubeVideoAdSkipper() {
   if (!host.includes('youtube.com')) return;
 
   const player = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
-  const video = player ? player.querySelector('video') : document.querySelector('video.html5-main-video') || document.querySelector('video');
+  if (!player) return;
 
-  const isAdPlaying = Boolean(
-    player?.classList.contains('ad-showing') ||
-    player?.classList.contains('ad-interrupting') ||
-    document.querySelector('.ytp-ad-player-overlay, .ytp-ad-text, .ytp-ad-preview-text, .ytp-ad-skip-button, .video-ads')
-  );
+  const video = player.querySelector('video') || document.querySelector('video.html5-main-video') || document.querySelector('video');
+  if (!video) return;
 
-  if (isAdPlaying && video) {
-    // 1. SILENCE AUDIO IMMEDIATELY (Guarantees no ad audio is audible)
+  // Strict check: YouTube ONLY marks in-stream ads with 'ad-showing' or 'ad-interrupting' on the player container
+  // Never check static DOM containers like '.video-ads' which permanently exist on every video
+  const isAdPlaying = player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting');
+
+  if (isAdPlaying) {
+    // 1. SILENCE AUDIO IMMEDIATELY (Neither video nor audio of the ad is audible)
     if (!wasAdMutedByShield) {
       userWasMutedBeforeAd = Boolean(video.muted);
       video.muted = true;
@@ -249,15 +146,17 @@ function handleYouTubeVideoAdSkipper() {
       video.muted = true;
     }
 
-    // 2. SPEED UP AD TO 16X MAXIMUM SPEED
+    // 2. SPEED UP AD TO MAXIMUM 16X SPEED
     try {
       video.playbackRate = 16.0;
     } catch (e) {}
 
-    // 3. JUMP IMMEDIATELY TO END OF AD DURATION
+    // 3. JUMP NEAR END OF AD SEGMENT SAFELY
     try {
       if (isFinite(video.duration) && video.duration > 0 && !isNaN(video.currentTime)) {
-        video.currentTime = video.duration + 1;
+        if (video.currentTime < video.duration - 0.2) {
+          video.currentTime = video.duration - 0.1;
+        }
       }
     } catch (e) {}
 
@@ -278,8 +177,8 @@ function handleYouTubeVideoAdSkipper() {
         break;
       }
     }
-  } else if (!isAdPlaying && video) {
-    // Ad finished: restore volume and playback speed
+  } else {
+    // Normal video playback: restore user volume and playback speed if previously muted for an ad
     if (wasAdMutedByShield) {
       if (!userWasMutedBeforeAd) {
         video.muted = false;
@@ -299,14 +198,14 @@ function handleYouTubeVideoAdSkipper() {
     else adBlockWarning.remove();
     const backdrop = document.querySelector('tp-yt-iron-overlay-backdrop');
     if (backdrop) backdrop.remove();
-    if (video && video.paused) {
+    if (video.paused) {
       video.play().catch(() => {});
     }
   }
 }
 
 // Continuous active monitoring loop for zero-delay ad neutralization
-setInterval(handleYouTubeVideoAdSkipper, 50);
+setInterval(handleYouTubeVideoAdSkipper, 100);
 document.addEventListener('timeupdate', handleYouTubeVideoAdSkipper, true);
 document.addEventListener('play', handleYouTubeVideoAdSkipper, true);
 

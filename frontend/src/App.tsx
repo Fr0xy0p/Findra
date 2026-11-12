@@ -360,12 +360,6 @@ export const App: React.FC = () => {
 
               {/* Action Buttons */}
               <div className="flex items-center space-x-2.5 self-end sm:self-auto">
-                {/* Shield Badge */}
-                <div className="hidden md:flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Shield Active</span>
-                </div>
-
                 <button
                   onClick={() => setIsCrawlModalOpen(true)}
                   className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-[#fb542b] bg-orange-50 dark:bg-[#fb542b]/15 border border-orange-200 dark:border-[#fb542b]/30 hover:bg-orange-100 dark:hover:bg-[#fb542b]/25 transition-colors cursor-pointer"
