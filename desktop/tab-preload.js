@@ -188,7 +188,9 @@ function handleYouTubeVideoAdSkipper() {
     }
   } else {
     // Normal video playback: restore user volume, opacity, and normal 1x playback speed
-    video.style.opacity = '1';
+    if (video.style.opacity === '0') {
+      video.style.opacity = '1';
+    }
 
     if (wasAdMutedByShield) {
       if (!userWasMutedBeforeAd) {
@@ -197,12 +199,13 @@ function handleYouTubeVideoAdSkipper() {
       try {
         video.playbackRate = 1.0;
       } catch (e) {}
-      wasAdMutedByShield = false;
-    }
 
-    // Ensure the main video resumes playing immediately without any buffer stall or pause
-    if (video.paused && video.readyState >= 2) {
-      video.play().catch(() => {});
+      // Resume main video ONLY ONCE upon transitioning from the ad
+      if (video.paused && video.readyState >= 2) {
+        video.play().catch(() => {});
+      }
+
+      wasAdMutedByShield = false;
     }
   }
 
