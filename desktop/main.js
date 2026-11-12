@@ -3,8 +3,7 @@ const path = require('path');
 const http = require('http');
 const fs = require('fs');
 const { spawn } = require('child_process');
-const { ElectronBlocker, fullLists } = require('@ghostery/adblocker-electron');
-const { parseFilters } = require('@ghostery/adblocker');
+const { FilterSet, Engine } = require('adblock-rs');
 
 // ---------------- GLOBAL ERROR SHIELD ----------------
 // Prevent uncaught exceptions (such as "Object has been destroyed" during window/tab close or async teardown)
@@ -29,8 +28,8 @@ app.commandLine.appendSwitch('overscroll-history-navigation', '1');
 // Enable modern web authentication, credentials and cross-site cookie persistence (for Google Sign-In)
 app.commandLine.appendSwitch('disable-features', 'SameSiteByDefaultCookies,CookiesWithoutSameSiteMustBeSecure');
 
-// Findra Shield Ad & Tracker Blocker Engine State
-let adBlocker = null;
+// Findra Shield Native Brave adblock-rust Engine State
+let adblockEngine = null;
 let isShieldEnabled = true;
 let totalBlockedAds = 0;
 
@@ -820,30 +819,7 @@ function setupIpcHandlers() {
     userConfig.shieldEnabled = isShieldEnabled;
     saveConfig(userConfig);
 
-    if (adBlocker) {
-      try {
-        const mainSes = getMainSession();
-        if (isShieldEnabled) {
-          if (!adBlocker.isBlockingEnabled(session.defaultSession)) {
-            adBlocker.enableBlockingInSession(session.defaultSession);
-          }
-          if (!adBlocker.isBlockingEnabled(mainSes)) {
-            adBlocker.enableBlockingInSession(mainSes);
-          }
-          console.log('🛡️ [Findra Shield] AdBlock turned ON');
-        } else {
-          if (adBlocker.isBlockingEnabled(session.defaultSession)) {
-            adBlocker.disableBlockingInSession(session.defaultSession);
-          }
-          if (adBlocker.isBlockingEnabled(mainSes)) {
-            adBlocker.disableBlockingInSession(mainSes);
-          }
-          console.log('🛡️ [Findra Shield] AdBlock turned OFF');
-        }
-      } catch (e) {
-        console.error('[-] Error toggling shield:', e);
-      }
-    }
+    console.log(`🛡️ [Findra Shield] Native adblock-rust filtering: ${isShieldEnabled ? 'ON' : 'OFF'}`);
 
     if (isWindowAlive(mainWindow)) {
       try {
@@ -955,6 +931,74 @@ function createWindow() {
   setupApplicationMenu();
 }
 
+function setupAdblockInSession(ses) {
+  if (!ses || !ses.webRequest) return;
+
+  const filter = { urls: ['*://*/*'] };
+
+  ses.webRequest.onBeforeRequest(filter, (details, callback) => {
+    if (!isShieldEnabled || !adblockEngine) {
+      return callback({});
+    }
+
+    const url = details.url || '';
+
+    // Never block internal app, file, devtools or blob schemes
+    if (url.startsWith('file:') || url.startsWith('data:') || url.startsWith('devtools:') || url.startsWith('chrome-extension:') || url.startsWith('blob:')) {
+      return callback({});
+    }
+
+    // Never block Google / YouTube account login or authentication endpoints
+    if (url.includes('accounts.google.com') || url.includes('accounts.youtube.com') || url.includes('gstatic.com/recaptcha')) {
+      return callback({});
+    }
+
+    // Map resource type to adblock-rs format
+    let resType = 'other';
+    switch (details.resourceType) {
+      case 'mainFrame': resType = 'main_frame'; break;
+      case 'subFrame': resType = 'sub_frame'; break;
+      case 'stylesheet': resType = 'stylesheet'; break;
+      case 'script': resType = 'script'; break;
+      case 'image': resType = 'image'; break;
+      case 'font': resType = 'font'; break;
+      case 'object': resType = 'object'; break;
+      case 'xmlhttprequest': resType = 'xmlhttprequest'; break;
+      case 'ping': resType = 'ping'; break;
+      case 'cspReport': resType = 'csp_report'; break;
+      case 'media': resType = 'media'; break;
+      case 'websocket': resType = 'websocket'; break;
+      default: resType = 'other'; break;
+    }
+
+    const sourceUrl = details.referrer || url;
+    const method = details.method ? details.method.toLowerCase() : 'get';
+
+    try {
+      const match = adblockEngine.check(url, sourceUrl, resType, method, true);
+      if (match && match.should_block) {
+        totalBlockedAds++;
+        if (isWindowAlive(mainWindow)) {
+          try {
+            mainWindow.webContents.send('shield:stats', {
+              totalBlocked: totalBlockedAds,
+              enabled: isShieldEnabled,
+              url: url,
+            });
+          } catch (e) {}
+        }
+
+        if (match.redirect) {
+          return callback({ redirectURL: match.redirect });
+        }
+        return callback({ cancel: true });
+      }
+    } catch (e) {}
+
+    return callback({});
+  });
+}
+
 async function setupAdBlocker() {
   try {
     userConfig = loadConfig();
@@ -962,66 +1006,50 @@ async function setupAdBlocker() {
       isShieldEnabled = userConfig.shieldEnabled;
     }
 
-    let cachePath = '';
-    try {
-      cachePath = path.join(app.getPath('userData'), 'findra-adblocker-cache.bin');
-    } catch (e) {
-      cachePath = path.join(__dirname, 'findra-adblocker-cache.bin');
+    console.log('🛡️ [Findra Shield] Initializing native Brave adblock-rust engine...');
+
+    let cachePath = path.join(__dirname, 'findra-adblock-rust-cache.bin');
+    if (!fs.existsSync(cachePath)) {
+      try {
+        const userCache = path.join(app.getPath('userData'), 'findra-adblock-rust-cache.bin');
+        if (fs.existsSync(userCache)) cachePath = userCache;
+      } catch (e) {}
     }
 
-    const caching = {
-      path: cachePath,
-      read: fs.promises.readFile,
-      write: fs.promises.writeFile,
-    };
-
-    console.log('🛡️ [Findra Shield] Initializing Ghostery & EasyList adblock engine...');
-    adBlocker = await ElectronBlocker.fromLists(fetch, fullLists, {
-      loadNetworkFilters: true,
-      loadExceptionFilters: true,
-      loadCosmeticFilters: false,
-    }, caching);
-
-    // Whitelist YouTube player telemetry to prevent YouTube's artificial 5-10s anti-adblock buffering penalty
-    try {
-      const YOUTUBE_EXCEPTION_RULES = `
-@@||youtube.com/api/stats/
-@@||youtube.com/pagead/
-@@||youtube.com/ptracking
-@@||youtube.com/youtubei/v1/player/ad_break
-@@||googlevideo.com/videoplayback
-`;
-      const { networkFilters } = parseFilters(YOUTUBE_EXCEPTION_RULES, adBlocker.config);
-      if (networkFilters && networkFilters.length > 0) {
-        adBlocker.update({ newNetworkFilters: networkFilters });
-      }
-    } catch (e) {
-      console.warn('[-] Could not append YouTube exception rules to adblocker:', e);
+    if (fs.existsSync(cachePath)) {
+      const t0 = Date.now();
+      const buf = fs.readFileSync(cachePath);
+      const arrayBuf = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+      adblockEngine = new Engine(new FilterSet());
+      adblockEngine.deserialize(arrayBuf);
+      console.log(`🛡️ [Findra Shield] Native adblock-rust engine loaded in ${Date.now() - t0}ms!`);
+    } else {
+      console.log('🛡️ [Findra Shield] Compiling native adblock-rust filter set...');
+      const filterSet = new FilterSet(true);
+      filterSet.addFilters([
+        '||doubleclick.net^',
+        '||googleads.g.doubleclick.net^',
+        '||adservice.google.com^',
+        '||pagead2.googlesyndication.com^',
+        '||static.doubleclick.net^',
+        '||taboola.com^',
+        '||outbrain.com^',
+        '||criteo.com^',
+        '||adnxs.com^',
+        '@@||youtube.com/api/stats/',
+        '@@||youtube.com/pagead/',
+        '@@||youtube.com/ptracking',
+        '@@||youtube.com/youtubei/v1/player/ad_break',
+        '@@||googlevideo.com/videoplayback'
+      ].join('\n'));
+      adblockEngine = new Engine(filterSet);
     }
 
-    if (isShieldEnabled) {
-      adBlocker.enableBlockingInSession(session.defaultSession);
-      const mainSes = getMainSession();
-      if (!adBlocker.isBlockingEnabled(mainSes)) {
-        adBlocker.enableBlockingInSession(mainSes);
-      }
-      console.log('🛡️ [Findra Shield] AdBlock successfully active on main persistent session!');
-    }
-
-    adBlocker.on('request-blocked', (request) => {
-      totalBlockedAds++;
-      if (isWindowAlive(mainWindow)) {
-        try {
-          mainWindow.webContents.send('shield:stats', {
-            totalBlocked: totalBlockedAds,
-            enabled: isShieldEnabled,
-            url: request.url,
-          });
-        } catch (e) {}
-      }
-    });
+    setupAdblockInSession(getMainSession());
+    setupAdblockInSession(session.defaultSession);
+    console.log('🛡️ [Findra Shield] Native adblock-rust filtering active on all browser sessions!');
   } catch (err) {
-    console.error('[-] Error setting up Findra Shield:', err);
+    console.error('[-] Error setting up Findra Shield (adblock-rust):', err);
   }
 }
 
