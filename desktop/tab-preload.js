@@ -1,4 +1,4 @@
-const { ipcRenderer, contextBridge } = require('electron');
+const { ipcRenderer, contextBridge, webFrame } = require('electron');
 
 // 1. Google / Chromium Browser Environment Emulation (Fixes "This browser or app may not be secure")
 try {
@@ -56,6 +56,236 @@ try {
     contextBridge.exposeInMainWorld('isFindraNativeApp', true);
   }
 } catch (e) {}
+
+// Safe main-world script evaluator
+function injectMainWorldScript(scriptSource) {
+  if (!scriptSource) return;
+  try {
+    if (webFrame && typeof webFrame.executeJavaScript === 'function') {
+      webFrame.executeJavaScript(scriptSource);
+    }
+  } catch (e) {}
+
+  function tryAppendScriptTag() {
+    try {
+      const parent = document.head || document.documentElement;
+      if (parent) {
+        const s = document.createElement('script');
+        s.textContent = scriptSource;
+        parent.appendChild(s);
+        s.remove();
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  if (!tryAppendScriptTag()) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', tryAppendScriptTag, { once: true });
+    }
+  }
+}
+
+// ---------------- SOLUTION 1: PRE-EMPTIVE YOUTUBE AD ELIMINATION ----------------
+// Neutralizes player ad placements (adPlacements, adSlots, playerAds) at the JSON/config level
+// BEFORE the HTML5 player queues an ad MediaSource stream.
+// This boots the player directly to the main video at 0:00 without media pipeline resets,
+// unbuffered seeks, or stream-switching buffering delays.
+const YOUTUBE_PREEMPTIVE_SCRIPT = `
+(function() {
+  if (window.__findraYouTubePreEmptiveLoaded) return;
+  window.__findraYouTubePreEmptiveLoaded = true;
+
+  function pruneAdsFromObject(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    try {
+      if ('adPlacements' in obj) delete obj.adPlacements;
+      if ('adSlots' in obj) delete obj.adSlots;
+      if ('playerAds' in obj) delete obj.playerAds;
+      if ('adBreakHeartbeatParams' in obj) delete obj.adBreakHeartbeatParams;
+      if ('adTag' in obj) delete obj.adTag;
+      if ('adParams' in obj) delete obj.adParams;
+      if (obj.playerResponse && typeof obj.playerResponse === 'object') {
+        pruneAdsFromObject(obj.playerResponse);
+      }
+    } catch (e) {}
+    return obj;
+  }
+
+  // 1. Hook window.ytInitialPlayerResponse
+  let _ytInitialPlayerResponse = window.ytInitialPlayerResponse;
+  if (_ytInitialPlayerResponse) {
+    pruneAdsFromObject(_ytInitialPlayerResponse);
+  }
+  try {
+    Object.defineProperty(window, 'ytInitialPlayerResponse', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return _ytInitialPlayerResponse;
+      },
+      set(val) {
+        _ytInitialPlayerResponse = pruneAdsFromObject(val);
+      }
+    });
+  } catch (e) {}
+
+  // 2. Hook window.ytplayer & ytplayer.config.args.raw_player_response
+  function sanitizeYtPlayerArgs(args) {
+    if (!args || typeof args !== 'object') return;
+    if (args.raw_player_response) {
+      if (typeof args.raw_player_response === 'string') {
+        try {
+          const parsed = JSON.parse(args.raw_player_response);
+          pruneAdsFromObject(parsed);
+          args.raw_player_response = JSON.stringify(parsed);
+        } catch (e) {}
+      } else if (typeof args.raw_player_response === 'object') {
+        pruneAdsFromObject(args.raw_player_response);
+      }
+    }
+    delete args.ad_device;
+    delete args.ad_flags;
+    delete args.ad_logging_flag;
+    delete args.ad_preroll;
+    delete args.ad_tag;
+    delete args.adsense_video_doc_id;
+    delete args.afv;
+    delete args.afv_ad_tag;
+    delete args.allow_html5_ads;
+  }
+
+  function hookYtPlayer(ytp) {
+    if (!ytp || typeof ytp !== 'object') return;
+    if (ytp.config && ytp.config.args) {
+      sanitizeYtPlayerArgs(ytp.config.args);
+    }
+    let _cfg = ytp.config;
+    try {
+      Object.defineProperty(ytp, 'config', {
+        configurable: true,
+        enumerable: true,
+        get() { return _cfg; },
+        set(val) {
+          _cfg = val;
+          if (_cfg && _cfg.args) sanitizeYtPlayerArgs(_cfg.args);
+        }
+      });
+    } catch (e) {}
+  }
+
+  let _ytplayer = window.ytplayer;
+  if (_ytplayer) {
+    hookYtPlayer(_ytplayer);
+  }
+  try {
+    Object.defineProperty(window, 'ytplayer', {
+      configurable: true,
+      enumerable: true,
+      get() { return _ytplayer; },
+      set(val) {
+        _ytplayer = val;
+        hookYtPlayer(_ytplayer);
+      }
+    });
+  } catch (e) {}
+
+  // 3. Hook JSON.parse to prune ad placements from player API responses
+  const originalJsonParse = JSON.parse;
+  JSON.parse = function(text, reviver) {
+    const data = originalJsonParse.call(this, text, reviver);
+    if (data && typeof data === 'object' && typeof text === 'string') {
+      if (text.includes('adPlacements') || text.includes('adSlots') || text.includes('playerAds')) {
+        pruneAdsFromObject(data);
+      }
+    }
+    return data;
+  };
+
+  // 4. Hook Response.prototype.json for /youtubei/v1/player fetch responses
+  if (typeof Response !== 'undefined' && Response.prototype && Response.prototype.json) {
+    const originalResponseJson = Response.prototype.json;
+    Response.prototype.json = async function() {
+      const data = await originalResponseJson.call(this);
+      if (data && typeof data === 'object') {
+        if (data.adPlacements || data.adSlots || data.playerAds || data.playerResponse) {
+          pruneAdsFromObject(data);
+        }
+      }
+      return data;
+    };
+  }
+
+  // 5. Neutralize ad-blocker enforcement timeout traps
+  try {
+    if (window.yt && window.yt.config_ && window.yt.config_.EXPERIMENT_FLAGS) {
+      window.yt.config_.EXPERIMENT_FLAGS.html5_ad_timeout_ms = 0;
+    }
+  } catch (e) {}
+})();
+`;
+
+function initYouTubeShield() {
+  const host = window.location.hostname || '';
+  if (host.includes('youtube.com')) {
+    injectMainWorldScript(YOUTUBE_PREEMPTIVE_SCRIPT);
+  }
+}
+initYouTubeShield();
+window.addEventListener('yt-navigate-finish', initYouTubeShield);
+window.addEventListener('popstate', initYouTubeShield);
+
+// ---------------- SOLUTION 3: BRAVE SHIELDS RUST COSMETICS & SCRIPTLETS ----------------
+// Integrates adblockEngine.urlCosmeticResources dynamically for any loaded webpage
+async function applyNativeBraveCosmetics() {
+  const host = window.location.hostname || '';
+  const url = window.location.href || '';
+  if (!url || url.startsWith('about:') || url.startsWith('chrome:') || url.startsWith('data:') || url.startsWith('file:')) return;
+  if (host.includes('accounts.google.com') || host.includes('gstatic.com') || host.includes('recaptcha.net')) return;
+
+  try {
+    const res = await ipcRenderer.invoke('shield:getCosmeticResources', url);
+    if (!res) return;
+
+    // Apply native adblock-rust hide selectors
+    if (res.hide_selectors && res.hide_selectors.length > 0) {
+      const exceptions = new Set(res.exceptions || []);
+      const validSelectors = res.hide_selectors.filter(s => s && !exceptions.has(s));
+
+      if (validSelectors.length > 0) {
+        const existing = document.getElementById('findra-shield-rust-cosmetics');
+        if (existing) existing.remove();
+
+        const style = document.createElement('style');
+        style.id = 'findra-shield-rust-cosmetics';
+        style.textContent = `
+          ${validSelectors.join(',\n')} {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            pointer-events: none !important;
+          }
+        `;
+        (document.head || document.documentElement).appendChild(style);
+      }
+    }
+
+    // Execute any procedural scriptlet provided by adblock-rust
+    if (res.injected_script && typeof res.injected_script === 'string' && res.injected_script.trim()) {
+      injectMainWorldScript(res.injected_script);
+    }
+  } catch (e) {}
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', applyNativeBraveCosmetics, { once: true });
+} else {
+  applyNativeBraveCosmetics();
+}
+
+window.addEventListener('yt-navigate-finish', applyNativeBraveCosmetics);
+window.addEventListener('popstate', applyNativeBraveCosmetics);
 
 // Findra Shield: Cosmetic Ad-Element Hiding
 // Collapses ad frames, banner placeholders, and sponsored widgets so pages render cleanly

@@ -814,6 +814,16 @@ function setupIpcHandlers() {
     };
   });
 
+  // Native Brave adblock-rust cosmetic filter retrieval (Solution 3)
+  ipcMain.handle('shield:getCosmeticResources', (_e, url) => {
+    if (!isShieldEnabled || !adblockEngine || !url) return null;
+    try {
+      return adblockEngine.urlCosmeticResources(url);
+    } catch (e) {
+      return null;
+    }
+  });
+
   ipcMain.handle('shield:toggle', (_e, enabled) => {
     isShieldEnabled = !!enabled;
     userConfig.shieldEnabled = isShieldEnabled;
