@@ -458,6 +458,14 @@ setInterval(handleYouTubeVideoAdSkipper, 100);
 document.addEventListener('timeupdate', handleYouTubeVideoAdSkipper, true);
 document.addEventListener('play', handleYouTubeVideoAdSkipper, true);
 
+// Synchronize HTML5 Fullscreen state with Findra native chrome (e.g. YouTube video full screen)
+document.addEventListener('fullscreenchange', () => {
+  try {
+    const isFs = Boolean(document.fullscreenElement);
+    ipcRenderer.send('tab:fullscreen-change', isFs);
+  } catch (e) {}
+}, true);
+
 // Two-finger trackpad horizontal swipe detection for macOS / Windows
 let accumulatedDeltaX = 0;
 let gestureCooldown = false;

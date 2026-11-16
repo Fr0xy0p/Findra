@@ -89,6 +89,24 @@ let mainWindow = null;
 let sidePanelView = null;
 let isSidePanelOpen = false;
 
+// HTML5 Fullscreen state (YouTube video fullscreen, etc.)
+let isHtmlFullScreen = false;
+let fullScreenTabId = null;
+
+function setHtmlFullScreen(enabled, tabId = null) {
+  if (isHtmlFullScreen === enabled) return;
+  isHtmlFullScreen = enabled;
+  fullScreenTabId = enabled ? (tabId || activeTabId) : null;
+
+  updateLayout();
+
+  if (isWindowAlive(mainWindow)) {
+    try {
+      mainWindow.webContents.send('fullscreen:changed', isHtmlFullScreen);
+    } catch (e) {}
+  }
+}
+
 let tabs = new Map();
 let activeTabId = null;
 let nextTabId = 1;
@@ -171,6 +189,21 @@ function getBoundsForView(isSidePanel = false) {
   } catch (e) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
+
+  // When active tab is in HTML fullscreen (e.g. YouTube video full screen),
+  // expand view to fill 100% of the window/screen from (0, 0), completely hiding the tab bar
+  if (isHtmlFullScreen) {
+    if (isSidePanel) {
+      return { x: -9999, y: -9999, width: 0, height: 0 };
+    }
+    return {
+      x: 0,
+      y: 0,
+      width: bounds.width,
+      height: bounds.height
+    };
+  }
+
   const contentHeight = Math.max(bounds.height - TOOLBAR_HEIGHT, 100);
 
   if (isSidePanel) {
@@ -197,7 +230,7 @@ function updateLayout() {
   // Resize side panel if open
   if (sidePanelView && !sidePanelView.isDestroyed?.() && sidePanelView.webContents && !sidePanelView.webContents.isDestroyed()) {
     try {
-      if (isSidePanelOpen) {
+      if (isSidePanelOpen && !isHtmlFullScreen) {
         sidePanelView.setBounds(getBoundsForView(true));
         sidePanelView.setVisible(true);
       } else {
@@ -369,6 +402,16 @@ function createTab(initialUrl = findraBaseUrl) {
     broadcastTabState();
   });
 
+  // Handle HTML5 Fullscreen (YouTube full screen video mode)
+  wc.on('enter-html-full-screen', () => {
+    if (!isTabAlive(tab)) return;
+    setHtmlFullScreen(true, tab.id);
+  });
+
+  wc.on('leave-html-full-screen', () => {
+    setHtmlFullScreen(false);
+  });
+
   // Handle popup windows and OAuth sign-in flows (Google, Apple, Microsoft, GitHub, etc.)
   wc.setWindowOpenHandler(({ url, disposition, features }) => {
     const isAuth = url.includes('accounts.google.com') ||
@@ -425,6 +468,18 @@ function createTab(initialUrl = findraBaseUrl) {
 function switchTab(id) {
   if (!tabs.has(id)) return;
   if (!isWindowAlive(mainWindow)) return;
+
+  // If switching tabs while in HTML fullscreen, exit fullscreen cleanly
+  if (isHtmlFullScreen && fullScreenTabId && fullScreenTabId !== id) {
+    const prevTab = tabs.get(fullScreenTabId);
+    if (isTabAlive(prevTab)) {
+      try {
+        prevTab.view.webContents.executeJavaScript('if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});');
+      } catch (e) {}
+    }
+    setHtmlFullScreen(false);
+  }
+
   activeTabId = id;
   const activeTab = tabs.get(id);
   if (!isTabAlive(activeTab)) return;
@@ -446,6 +501,9 @@ function switchTab(id) {
 
 function closeTab(id) {
   if (!tabs.has(id)) return;
+  if (fullScreenTabId === id || isHtmlFullScreen) {
+    setHtmlFullScreen(false);
+  }
   const tab = tabs.get(id);
   tabs.delete(id);
 
@@ -685,6 +743,16 @@ function setupIpcHandlers() {
     }
   });
 
+  // HTML5 Fullscreen synchronization from tab DOM (e.g. YouTube video full screen)
+  ipcMain.on('tab:fullscreen-change', (event, isFs) => {
+    for (const [id, tab] of tabs.entries()) {
+      if (isTabAlive(tab) && tab.view.webContents === event.sender) {
+        setHtmlFullScreen(Boolean(isFs), id);
+        return;
+      }
+    }
+  });
+
   // Setup IPC Handlers
   ipcMain.on('browser:newTab', (_e, url) => createTab(url || findraBaseUrl));
   ipcMain.on('browser:switchTab', (_e, id) => switchTab(id));
@@ -883,6 +951,27 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'ui', 'index.html'));
 
   mainWindow.on('resize', updateLayout);
+
+  // Synchronize HTML fullscreen with main window chrome
+  mainWindow.on('enter-html-full-screen', () => {
+    setHtmlFullScreen(true);
+  });
+
+  mainWindow.on('leave-html-full-screen', () => {
+    setHtmlFullScreen(false);
+  });
+
+  mainWindow.on('leave-full-screen', () => {
+    if (isHtmlFullScreen) {
+      setHtmlFullScreen(false);
+      const activeTab = tabs.get(activeTabId);
+      if (isTabAlive(activeTab)) {
+        try {
+          activeTab.view.webContents.executeJavaScript('if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});');
+        } catch (e) {}
+      }
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;

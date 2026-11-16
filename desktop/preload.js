@@ -45,6 +45,11 @@ contextBridge.exposeInMainWorld('findraBrowser', {
   },
   onFocusOmnibox: (callback) => {
     ipcRenderer.on('shortcut:focusOmnibox', () => callback());
+  },
+
+  // HTML5 Fullscreen state notification
+  onFullscreenChange: (callback) => {
+    ipcRenderer.on('fullscreen:changed', (_event, isFullScreen) => callback(isFullScreen));
   }
 });
 

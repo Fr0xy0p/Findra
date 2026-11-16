@@ -312,6 +312,13 @@ window.findraBrowser.onFocusOmnibox(() => {
   omniboxInput.select();
 });
 
+// Hide/show browser chrome when web content enters/leaves HTML fullscreen (e.g. YouTube video full screen)
+if (window.findraBrowser && window.findraBrowser.onFullscreenChange) {
+  window.findraBrowser.onFullscreenChange((isFullScreen) => {
+    document.body.classList.toggle('html-fullscreen', Boolean(isFullScreen));
+  });
+}
+
 // ---------------- FINDRA SHIELD (ADBLOCK) CONTROLS ----------------
 const btnShield = document.getElementById('btn-shield');
 const shieldPopover = document.getElementById('shield-popover');

@@ -22,6 +22,16 @@ body {
   -webkit-app-region: drag;
 }
 
+/* Hide tab bar and omnibox completely when active tab enters HTML fullscreen (e.g. YouTube video full screen) */
+body.html-fullscreen #browser-chrome {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+}
+
 /* ---------------- TABS ROW ---------------- */
 #tab-bar-container {
   display: flex;
