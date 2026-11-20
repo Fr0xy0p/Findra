@@ -96,21 +96,87 @@ function createFallbackFavicon(title) {
 }
 
 // ---------------- NAVIGATION & CONTROLS ----------------
-btnNewTab.onclick = () => window.findraBrowser.newTab();
+if (btnNewTab) btnNewTab.onclick = () => window.findraBrowser.newTab();
 if (btnToolbarNewTab) {
   btnToolbarNewTab.onclick = () => window.findraBrowser.newTab();
 }
-btnBack.onclick = () => window.findraBrowser.goBack();
-btnForward.onclick = () => window.findraBrowser.goForward();
-btnReload.onclick = () => window.findraBrowser.reload();
-btnHome.onclick = () => window.findraBrowser.goHome();
+if (btnBack) btnBack.onclick = () => window.findraBrowser.goBack();
+if (btnForward) btnForward.onclick = () => window.findraBrowser.goForward();
+if (btnReload) btnReload.onclick = () => window.findraBrowser.reload();
+if (btnHome) btnHome.onclick = () => window.findraBrowser.goHome();
+
+// Bookmark Star Button
+const btnBookmark = document.getElementById('btn-bookmark');
+if (btnBookmark) {
+  btnBookmark.onclick = () => {
+    btnBookmark.classList.toggle('active');
+    const isBookmarked = btnBookmark.classList.contains('active');
+    btnBookmark.style.color = isBookmarked ? '#f59e0b' : '#94a3b8';
+    btnBookmark.style.fill = isBookmarked ? '#f59e0b' : 'none';
+  };
+}
+
+// Bookmarks Bar chips
+document.querySelectorAll('.bookmark-chip').forEach(chip => {
+  chip.onclick = () => {
+    const url = chip.getAttribute('data-url');
+    if (url && window.findraBrowser && window.findraBrowser.navigate) {
+      window.findraBrowser.navigate(url);
+    }
+  };
+});
+
+const btnBookmarksGrid = document.getElementById('btn-bookmarks-grid');
+if (btnBookmarksGrid) {
+  btnBookmarksGrid.onclick = () => window.findraBrowser.goHome();
+}
+
+// Right Action Toolbar
+const btnExtensions = document.getElementById('btn-extensions');
+if (btnExtensions) {
+  btnExtensions.onclick = () => {
+    window.findraBrowser.navigate('chrome://extensions');
+  };
+}
+
+const btnMedia = document.getElementById('btn-media');
+if (btnMedia) {
+  btnMedia.onclick = () => {
+    const activeTab = document.querySelector('.browser-tab.active');
+    if (activeTab) activeTab.click();
+  };
+}
+
+const btnDownloads = document.getElementById('btn-downloads');
+if (btnDownloads) {
+  btnDownloads.onclick = () => {
+    window.findraBrowser.navigate('chrome://downloads');
+  };
+}
+
+const btnMenu = document.getElementById('btn-menu');
+if (btnMenu) {
+  btnMenu.onclick = () => openCloudModal();
+}
+
+const omniboxShieldBadge = document.getElementById('omnibox-shield-badge');
+if (omniboxShieldBadge) {
+  omniboxShieldBadge.onclick = (e) => {
+    e.stopPropagation();
+    if (shieldPopover) shieldPopover.classList.toggle('hidden');
+  };
+}
 
 // Navigate in the SAME tab!
 if (btnQuickGoogle) {
   btnQuickGoogle.onclick = () => window.findraBrowser.navigate('https://accounts.google.com/');
 }
-btnQuickYt.onclick = () => window.findraBrowser.navigate('https://www.youtube.com');
-btnSidepanel.onclick = () => window.findraBrowser.toggleSidePanel();
+if (btnQuickYt) {
+  btnQuickYt.onclick = () => window.findraBrowser.navigate('https://www.youtube.com');
+}
+if (btnSidepanel) {
+  btnSidepanel.onclick = () => window.findraBrowser.toggleSidePanel();
+}
 
 // Cloud Settings Modal
 const btnCloudConfig = document.getElementById('btn-cloud-config');
@@ -296,7 +362,11 @@ window.findraBrowser.onTabsUpdated(({ tabs, activeTabId, isSidePanelOpen }) => {
 window.findraBrowser.onNavigationState(({ url, canGoBack, canGoForward, isLoading }) => {
   // Only update omnibox if user is not actively typing in it
   if (document.activeElement !== omniboxInput) {
-    omniboxInput.value = url;
+    if (url && (url.includes('newtab.html') || (url.startsWith('file://') && url.includes('newtab')))) {
+      omniboxInput.value = '';
+    } else {
+      omniboxInput.value = url || '';
+    }
   }
 
   btnBack.disabled = !canGoBack;

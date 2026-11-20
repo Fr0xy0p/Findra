@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Tab - Findra</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #08060f;
+      color: #f1f5f9;
+      user-select: none;
+    }
+
+    /* ---------------- COSMIC SPACE BACKGROUND & LIGHT BURST ---------------- */
+    .cosmic-viewport {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 36px 20px 36px;
+      overflow: hidden;
+      background: #08060f;
+    }
+
+    /* Layer 1: Nebula & Aurora Gradient Clouds */
+    .nebula-glow {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 18% 30%, rgba(147, 51, 234, 0.22) 0%, transparent 48%),
+        radial-gradient(circle at 82% 25%, rgba(192, 38, 211, 0.20) 0%, transparent 45%),
+        radial-gradient(circle at 50% 65%, rgba(249, 115, 22, 0.28) 0%, transparent 55%),
+        radial-gradient(circle at 50% 90%, rgba(234, 88, 12, 0.35) 0%, transparent 60%),
+        linear-gradient(180deg, #090614 0%, #0e071c 40%, #150927 75%, #0a0412 100%);
+      z-index: 1;
+    }
+
+    /* Layer 2: Radiant Solar Flare Rays & Beams */
+    .light-rays {
+      position: absolute;
+      bottom: -60px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1400px;
+      height: 750px;
+      pointer-events: none;
+      background:
+        conic-gradient(from 225deg at 50% 100%, 
+          transparent 0deg, 
+          rgba(255, 180, 80, 0.12) 15deg, 
+          transparent 30deg, 
+          rgba(244, 63, 94, 0.14) 45deg, 
+          transparent 60deg, 
+          rgba(217, 70, 239, 0.18) 75deg, 
+          transparent 90deg, 
+          rgba(251, 146, 60, 0.14) 105deg, 
+          transparent 120deg
+        );
+      filter: blur(24px);
+      mix-blend-mode: screen;
+      z-index: 2;
+    }
+
+    /* Layer 3: Planet Silhouette & Sunrise Arc on the Horizon */
+    .planet-silhouette {
+      position: absolute;
+      bottom: -460px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1450px;
+      height: 780px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 15%, #180929 0%, #0c0416 55%, #050209 100%);
+      box-shadow: 
+        0 -4px 35px rgba(253, 186, 116, 0.6),
+        0 -18px 80px rgba(249, 115, 22, 0.45),
+        0 -35px 140px rgba(192, 38, 211, 0.3);
+      border-top: 1.5px solid rgba(254, 215, 170, 0.85);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    /* Glowing horizon sunrise flare */
+    .sunrise-burst {
+      position: absolute;
+      bottom: 275px;
+      left: 36%;
+      width: 420px;
+      height: 240px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 50%, #ffffff 0%, rgba(254, 240, 138, 0.9) 20%, rgba(249, 115, 22, 0.6) 50%, transparent 85%);
+      filter: blur(36px);
+      mix-blend-mode: screen;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    /* Twinkling Space Stars */
+    .stars-layer {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        radial-gradient(1px 1px at 15% 15%, #fff 100%, transparent),
+        radial-gradient(1.5px 1.5px at 28% 42%, rgba(255,255,255,0.8) 100%, transparent),
+        radial-gradient(1px 1px at 45% 20%, rgba(255,255,255,0.9) 100%, transparent),
+        radial-gradient(1.5px 1.5px at 62% 12%, rgba(255,255,255,0.7) 100%, transparent),
+        radial-gradient(1px 1px at 75% 35%, rgba(255,255,255,0.85) 100%, transparent),
+        radial-gradient(1.5px 1.5px at 88% 22%, #fff 100%, transparent),
+        radial-gradient(1px 1px at 92% 52%, rgba(255,255,255,0.6) 100%, transparent),
+        radial-gradient(1px 1px at 8% 68%, rgba(255,255,255,0.7) 100%, transparent),
+        radial-gradient(1px 1px at 22% 80%, rgba(255,255,255,0.75) 100%, transparent);
+      background-size: 500px 500px;
+      opacity: 0.65;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Subtle Cosmic Watermark Text in Background */
+    .bg-watermark-text {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 130px;
+      font-weight: 900;
+      letter-spacing: 12px;
+      color: rgba(255, 255, 255, 0.045);
+      text-transform: uppercase;
+      pointer-events: none;
+      z-index: 3;
+      white-space: nowrap;
+    }
+
+    /* ---------------- HEADER BAR (Settings & Options) ---------------- */
+    .dashboard-header {
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 12px;
+      z-index: 10;
+    }
+
+    .icon-header-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.15s ease;
+    }
+
+    .icon-header-btn:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: #ffffff;
+      transform: scale(1.04);
+    }
+
+    /* ---------------- MAIN CONTENT WRAPPER ---------------- */
+    .dashboard-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 820px;
+      z-index: 10;
+      margin-top: 15px;
+    }
+
+    /* Top Sites Carousel Row */
+    .top-sites-carousel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+
+    .top-sites-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .site-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .site-tile:hover {
+      transform: translateY(-4px);
+    }
+
+    .site-icon-box {
+      width: 58px;
+      height: 58px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      transition: all 0.15s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .site-tile:hover .site-icon-box {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .site-title {
+      font-size: 11px;
+      font-weight: 500;
+      color: #e2e8f0;
+      max-width: 68px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: center;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Pagination Indicator Dots */
+    .carousel-dots {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 14px;
+    }
+
+    .carousel-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.35);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .carousel-dot.active {
+      width: 7px;
+      height: 7px;
+      background: #ffffff;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+    }
+
+    /* ---------------- FLOATING AI OMNISEARCH CAPSULE ---------------- */
+    .omnisearch-capsule {
+      width: 100%;
+      max-width: 650px;
+      height: 56px;
+      border-radius: 9999px;
+      background: rgba(20, 19, 28, 0.82);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 
+        0 12px 36px rgba(0, 0, 0, 0.5),
+        0 0 1px rgba(255, 255, 255, 0.25),
+        inset 0 1px 1px rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      padding: 6px 10px 6px 18px;
+      gap: 12px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .omnisearch-capsule:focus-within {
+      background: rgba(25, 23, 36, 0.94);
+      border-color: rgba(251, 84, 43, 0.6);
+      box-shadow: 
+        0 16px 44px rgba(0, 0, 0, 0.65),
+        0 0 0 3px rgba(251, 84, 43, 0.2),
+        inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    }
+
+    .capsule-shield-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fb542b;
+      flex-shrink: 0;
+    }
+
+    .capsule-input {
+      flex: 1;
+      height: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 15px;
+      font-weight: 400;
+      color: #ffffff;
+    }
+
+    .capsule-input::placeholder {
+      color: #8b8f9e;
+      font-size: 14px;
+    }
+
+    .capsule-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .sparkles-btn {
+      background: transparent;
+      border: none;
+      color: #a78bfa;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      border-radius: 8px;
+      transition: all 0.15s;
+    }
+
+    .sparkles-btn:hover {
+      background: rgba(167, 139, 250, 0.15);
+      color: #c4b5fd;
+    }
+
+    .capsule-search-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 36px;
+      padding: 0 14px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #cbd5e1;
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .capsule-search-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .capsule-submit-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #fb542b;
+      border: none;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      box-shadow: 0 2px 8px rgba(251, 84, 43, 0.4);
+    }
+
+    .capsule-submit-btn:hover {
+      background: #ff6a3d;
+      transform: scale(1.06);
+    }
+
+    /* ---------------- BOTTOM WIDGETS ROW ---------------- */
+    .dashboard-footer {
+      width: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      z-index: 10;
+      gap: 20px;
+    }
+
+    /* Bottom Left: Featured Card + Stats */
+    .footer-left {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-width: 420px;
+    }
+
+    /* Featured Promo / Privacy Card */
+    .featured-card {
+      background: rgba(22, 19, 32, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(192, 38, 211, 0.3);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(192, 38, 211, 0.15);
+      border-radius: 14px;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 200px;
+      transition: all 0.15s ease;
+    }
+
+    .featured-card:hover {
+      border-color: rgba(192, 38, 211, 0.5);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 0 22px rgba(192, 38, 211, 0.25);
+    }
+
+    .featured-discount {
+      font-size: 22px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+    }
+
+    .featured-brand {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    .featured-desc {
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.3;
+    }
+
+    .featured-btn {
+      margin-top: 4px;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      background: #f8fafc;
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s;
+    }
+
+    .featured-btn:hover {
+      background: #ffffff;
+    }
+
+    /* Privacy Stats Bar */
+    .stats-widget {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .stats-header {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+
+    .stats-metrics-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 28px;
+    }
+
+    .stat-metric {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat-number {
+      font-size: 19px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.3px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    /* Bottom Right: Findra VPN Card with Attached Icon Strip */
+    .footer-right {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+    }
+
+    .vpn-card-wrapper {
+      display: flex;
+      align-items: center;
+      background: rgba(20, 18, 28, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+    }
+
+    /* Left Icon Strip */
+    .vpn-side-strip {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 12px;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .strip-icon {
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+
+    .strip-icon:hover {
+      color: #fb542b;
+      transform: scale(1.1);
+    }
+
+    /* VPN Info Content */
+    .vpn-content {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .vpn-details {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .vpn-title-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .vpn-badge {
+      font-size: 12px;
+      font-weight: 800;
+      color: #fb542b;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .vpn-powered {
+      font-size: 10px;
+      color: #64748b;
+    }
+
+    .vpn-features {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .vpn-feature-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      color: #cbd5e1;
+    }
+
+    .vpn-feature-item svg {
+      color: #10b981;
+      flex-shrink: 0;
+    }
+
+    .vpn-cta-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .vpn-btn {
+      padding: 10px 18px;
+      border-radius: 9999px;
+      background: #1e1b2e;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+
+    .vpn-btn:hover {
+      background: #2a2540;
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: scale(1.02);
+    }
+
+    .vpn-link {
+      font-size: 10.5px;
+      color: #64748b;
+      text-decoration: underline;
+      cursor: pointer;
+      transition: color 0.12s;
+    }
+
+    .vpn-link:hover {
+      color: #94a3b8;
+    }
+
+    /* Modal for adding custom shortcut */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+    }
+
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-box {
+      width: 380px;
+      background: #181724;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .modal-input {
+      width: 100%;
+      height: 38px;
+      border-radius: 8px;
+      background: #111019;
+      border: 1px solid #2d2b3d;
+      color: #ffffff;
+      padding: 0 12px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .modal-input:focus {
+      border-color: #fb542b;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .modal-btn-cancel {
+      padding: 8px 14px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid #333144;
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .modal-btn-save {
+      padding: 8px 16px;
+      border-radius: 8px;
+      background: #fb542b;
+      border: none;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="cosmic-viewport">
+    <!-- Visual Space Layers -->
+    <div class="stars-layer"></div>
+    <div class="nebula-glow"></div>
+    <div class="light-rays"></div>
+    <div class="planet-silhouette"></div>
+    <div class="sunrise-burst"></div>
+    <div class="bg-watermark-text">BLACK FRIDAY</div>
+
+    <!-- Header Actions (Top Right) -->
+    <header class="dashboard-header">
+      <button id="btn-settings" class="icon-header-btn" title="Customize Dashboard">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      </button>
+      <button id="btn-fullscreen-toggle" class="icon-header-btn" title="Toggle Cards">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      </button>
+    </header>
+
+    <!-- Center Section: Top Sites & Floating AI Search Capsule -->
+    <main class="dashboard-center">
+      <!-- Top Sites Carousel -->
+      <section class="top-sites-carousel">
+        <div id="top-sites-container" class="top-sites-row">
+          <!-- 1. DeepSeek -->
+          <a class="site-tile" href="https://chat.deepseek.com">
+            <div class="site-icon-box" style="background: linear-gradient(135deg, #1e3a8a, #0284c7);">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="white">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.93V19a1 1 0 01-2 0v-2.07A6.002 6.002 0 016.07 13H4a1 1 0 010-2h2.07A6.002 6.002 0 0111 6.07V4a1 1 0 012 0v2.07A6.002 6.002 0 0117.93 11H20a1 1 0 010 2h-2.07A6.002 6.002 0 0113 16.93zM12 8a4 4 0 100 8 4 4 0 000-8z"/>
+              </svg>
+            </div>
+            <span class="site-title">DeepSeek</span>
+          </a>
+
+          <!-- 2. JioHotstar -->
+          <a class="site-tile" href="https://www.hotstar.com">
+            <div class="site-icon-box" style="background: linear-gradient(135deg, #09132b, #1e293b);">
+              <svg viewBox="0 0 24 24" width="30" height="30">
+                <defs>
+                  <linearGradient id="star-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#38bdf8"/>
+                    <stop offset="50%" stop-color="#ec4899"/>
+                    <stop offset="100%" stop-color="#f59e0b"/>
+                  </linearGradient>
+                </defs>
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="url(#star-grad)"/>
+              </svg>
+            </div>
+            <span class="site-title">JioHotstar</span>
+          </a>
+
+          <!-- 3. Problems / LeetCode -->
+          <a class="site-tile" href="https://leetcode.com/problemset">
+            <div class="site-icon-box" style="background: linear-gradient(135deg, #262626, #171717);">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6"/>
+                <polyline points="8 6 2 12 8 18"/>
+              </svg>
+            </div>
+            <span class="site-title">Problems</span>
+          </a>
+
+          <!-- 4. Vercel -->
+          <a class="site-tile" href="https://vercel.com">
+            <div class="site-icon-box" style="background: #000000;">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="white">
+                <polygon points="12 4 22 20 2 20"/>
+              </svg>
+            </div>
+            <span class="site-title">Vercel</span>
+          </a>
+
+          <!-- 5. Online Shopping (Amazon) -->
+          <a class="site-tile" href="https://www.amazon.com">
+            <div class="site-icon-box" style="background: linear-gradient(135deg, #232f3e, #131921);">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="none">
+                <path d="M4 15c4.5 3 11.5 3 16 0" stroke="#ff9900" stroke-width="2.5" stroke-linecap="round"/>
+                <path d="M17 16l3-1-1 3" stroke="#ff9900" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <span class="site-title">Online Sh...</span>
+          </a>
+
+          <!-- 6. Add Shortcut -->
+          <div id="btn-add-shortcut" class="site-tile">
+            <div class="site-icon-box" style="background: rgba(255, 255, 255, 0.05); border-style: dashed;">
+              <svg viewBox="0 0 24 24" width="22" height="22" stroke="#94a3b8" stroke-width="2" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </div>
+            <span class="site-title">Add site</span>
+          </div>
+        </div>
+
+        <!-- Carousel Pagination Dots -->
+        <div class="carousel-dots">
+          <span class="carousel-dot active"></span>
+          <span class="carousel-dot"></span>
+        </div>
+      </section>
+
+      <!-- Center Floating Omnisearch Capsule -->
+      <form id="search-form" class="omnisearch-capsule">
+        <div class="capsule-shield-icon">
+          <!-- Findra Shield Emblem -->
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+          </svg>
+        </div>
+
+        <input
+          id="search-input"
+          class="capsule-input"
+          type="text"
+          placeholder="Ask anything, find anything..."
+          autocomplete="off"
+          spellcheck="false"
+          autofocus
+        />
+
+        <div class="capsule-actions">
+          <button type="button" id="btn-ai-sparkle" class="sparkles-btn" title="Ask Findra AI">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.9 5.8a2 2 0 001.3 1.3L21 12l-5.8 1.9a2 2 0 00-1.3 1.3L12 21l-1.9-5.8a2 2 0 00-1.3-1.3L3 12l5.8-1.9a2 2 0 001.3-1.3L12 3z"/></svg>
+          </button>
+
+          <button type="submit" class="capsule-search-btn">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.2" fill="none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>Search</span>
+          </button>
+
+          <button type="submit" class="capsule-submit-btn" title="Search">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+          </button>
+        </div>
+      </form>
+    </main>
+
+    <!-- Bottom Widgets Row -->
+    <footer class="dashboard-footer">
+      <!-- Bottom Left: Featured Offer & Privacy Stats -->
+      <div class="footer-left">
+        <!-- Proton Mail Promo Card -->
+        <div class="featured-card">
+          <div class="featured-discount">-60%</div>
+          <div class="featured-brand">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="#6d4aff">
+              <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+            </svg>
+            <span>Proton Mail</span>
+          </div>
+          <div class="featured-desc">Email that protects your privacy</div>
+          <a class="featured-btn" href="https://proton.me/mail" target="_blank">View Offers</a>
+        </div>
+
+        <!-- Brave-style Privacy Stats -->
+        <div class="stats-widget">
+          <div class="stats-header">STATS</div>
+          <div class="stats-metrics-row">
+            <div class="stat-metric">
+              <div id="stat-ads-blocked" class="stat-number">110,148</div>
+              <div class="stat-label">Trackers & ads blocked</div>
+            </div>
+            <div class="stat-metric">
+              <div id="stat-bandwidth-saved" class="stat-number">1,001.1 MB</div>
+              <div class="stat-label">Bandwidth saved</div>
+            </div>
+            <div class="stat-metric">
+              <div id="stat-time-saved" class="stat-number">1.6 Hours</div>
+              <div class="stat-label">Time saved</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Right: Findra VPN Protection Card with Left Vertical Icon Strip -->
+      <div class="footer-right">
+        <div class="vpn-card-wrapper">
+          <!-- Attached Vertical Utility Icon Dock -->
+          <div class="vpn-side-strip">
+            <svg class="strip-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+            </svg>
+            <svg class="strip-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <polygon points="12 2 22 20 2 20"/>
+            </svg>
+            <svg class="strip-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+          </div>
+
+          <!-- Card Content -->
+          <div class="vpn-content">
+            <div class="vpn-details">
+              <div class="vpn-title-row">
+                <span class="vpn-badge">FINDRA VPN</span>
+                <span class="vpn-powered">Powered by Guardian</span>
+              </div>
+              <div class="vpn-features">
+                <div class="vpn-feature-item">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Extra privacy & security online</span>
+                </div>
+                <div class="vpn-feature-item">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Hide your IP & change your location</span>
+                </div>
+                <div class="vpn-feature-item">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Protect every app on your device</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="vpn-cta-box">
+              <button id="btn-vpn-trial" class="vpn-btn">Start free trial</button>
+              <span class="vpn-link">Already purchased?</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Modal for Adding Custom Shortcut -->
+  <div id="add-shortcut-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-title">Add Top Site Shortcut</div>
+      <input id="shortcut-name-input" class="modal-input" type="text" placeholder="Site Name (e.g. GitHub)" />
+      <input id="shortcut-url-input" class="modal-input" type="url" placeholder="https://..." />
+      <div class="modal-actions">
+        <button id="btn-modal-cancel" class="modal-btn-cancel">Cancel</button>
+        <button id="btn-modal-save" class="modal-btn-save">Add Shortcut</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Search Execution
+    const searchForm = document.getElementById('search-form');
+    const searchInput = document.getElementById('search-input');
+
+    function performSearch(query, isAi = false) {
+      const q = query.trim();
+      if (!q) return;
+
+      if (window.findraBrowser && typeof window.findraBrowser.navigate === 'function') {
+        if (isAi && !q.startsWith('http')) {
+          window.findraBrowser.navigate(q + ' --ai');
+        } else {
+          window.findraBrowser.navigate(q);
+        }
+        return;
+      }
+
+      const defaultBaseUrl = 'https://findra-q4pt.onrender.com';
+      const baseUrl = (window.location.origin && window.location.origin.startsWith('http'))
+        ? window.location.origin
+        : defaultBaseUrl;
+
+      if (q.startsWith('http://') || q.startsWith('https://')) {
+        window.location.href = q;
+      } else if (q.includes('.') && !q.includes(' ')) {
+        window.location.href = 'https://' + q;
+      } else {
+        const aiParam = isAi ? '&ai=1' : '';
+        window.location.href = `${baseUrl}/search?q=${encodeURIComponent(q)}${aiParam}`;
+      }
+    }
+
+    searchForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      performSearch(searchInput.value);
+    });
+
+    // AI Sparkle button
+    document.getElementById('btn-ai-sparkle').addEventListener('click', () => {
+      const q = searchInput.value.trim();
+      if (q) {
+        performSearch(q, true);
+      } else {
+        searchInput.focus();
+      }
+    });
+
+    // Add Shortcut Modal
+    const addModal = document.getElementById('add-shortcut-modal');
+    const btnAddShortcut = document.getElementById('btn-add-shortcut');
+    const btnModalCancel = document.getElementById('btn-modal-cancel');
+    const btnModalSave = document.getElementById('btn-modal-save');
+    const nameInput = document.getElementById('shortcut-name-input');
+    const urlInput = document.getElementById('shortcut-url-input');
+
+    btnAddShortcut.addEventListener('click', () => {
+      nameInput.value = '';
+      urlInput.value = '';
+      addModal.classList.add('open');
+      nameInput.focus();
+    });
+
+    btnModalCancel.addEventListener('click', () => {
+      addModal.classList.remove('open');
+    });
+
+    btnModalSave.addEventListener('click', () => {
+      const name = nameInput.value.trim();
+      let url = urlInput.value.trim();
+      if (!name || !url) return;
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+
+      const container = document.getElementById('top-sites-container');
+      const newTile = document.createElement('a');
+      newTile.className = 'site-tile';
+      newTile.href = url;
+      newTile.innerHTML = `
+        <div class="site-icon-box" style="background: linear-gradient(135deg, #1e293b, #0f172a);">
+          <span style="font-size: 18px; font-weight: bold; color: #38bdf8;">${name.charAt(0).toUpperCase()}</span>
+        </div>
+        <span class="site-title">${name}</span>
+      `;
+      container.insertBefore(newTile, btnAddShortcut);
+      addModal.classList.remove('open');
+    });
+
+    // VPN Free Trial Simulation
+    document.getElementById('btn-vpn-trial').addEventListener('click', function() {
+      this.textContent = 'Protection Active ✓';
+      this.style.background = '#10b981';
+      this.style.borderColor = '#059669';
+    });
+
+    // Live Sync Stats with Electron Findra Shield if available
+    function updateStatsDisplay(blockedCount = 0) {
+      const baseBlocked = 110148;
+      const total = baseBlocked + (blockedCount || 0);
+      const elAds = document.getElementById('stat-ads-blocked');
+      if (elAds) elAds.textContent = total.toLocaleString();
+
+      const elBandwidth = document.getElementById('stat-bandwidth-saved');
+      if (elBandwidth) {
+        const mb = (1001.1 + (blockedCount * 0.05)).toFixed(1);
+        elBandwidth.textContent = `${mb} MB`;
+      }
+
+      const elTime = document.getElementById('stat-time-saved');
+      if (elTime) {
+        const hours = (1.6 + (blockedCount * 0.0005)).toFixed(1);
+        elTime.textContent = `${hours} Hours`;
+      }
+    }
+
+    // Check if in Electron native app
+    if (window.findraBrowser && window.findraBrowser.getShieldStatus) {
+      window.findraBrowser.getShieldStatus().then(status => {
+        if (status) updateStatsDisplay(status.blockedCount);
+      });
+      window.findraBrowser.onShieldStats(data => {
+        if (data) updateStatsDisplay(data.totalBlocked);
+      });
+    } else {
+      updateStatsDisplay(0);
+    }
+  </script>
+</body>
+</html>

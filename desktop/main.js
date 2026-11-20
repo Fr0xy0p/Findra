@@ -111,11 +111,20 @@ let tabs = new Map();
 let activeTabId = null;
 let nextTabId = 1;
 
-const TOOLBAR_HEIGHT = 86;
+// Toolbar height: Tab Bar (38px) + Navigation Toolbar (40px) + Bookmarks Bar (32px) = 110px
+const TOOLBAR_HEIGHT = 110;
 const SIDE_PANEL_WIDTH = 440;
 
 const DEFAULT_CLOUD_URL = 'https://findra-q4pt.onrender.com';
 let configPath = '';
+
+function getNewTabUrl() {
+  const localNewTab = path.join(__dirname, 'ui', 'newtab.html');
+  if (fs.existsSync(localNewTab)) {
+    return `file://${localNewTab}`;
+  }
+  return findraBaseUrl;
+}
 
 // Safe liveness check helpers
 function isWindowAlive(win) {
@@ -309,9 +318,10 @@ function broadcastTabState() {
   }
 }
 
-function createTab(initialUrl = findraBaseUrl) {
+function createTab(initialUrl = null) {
   if (!isWindowAlive(mainWindow)) return null;
 
+  const urlToLoad = initialUrl || getNewTabUrl();
   const id = `tab-${nextTabId++}`;
 
   const view = new WebContentsView({
@@ -336,8 +346,8 @@ function createTab(initialUrl = findraBaseUrl) {
   const tab = {
     id,
     view,
-    title: 'Findra Search',
-    url: initialUrl,
+    title: 'New Tab',
+    url: urlToLoad,
     favicon: null,
     isLoading: true,
     isAudioPlaying: false
@@ -457,7 +467,7 @@ function createTab(initialUrl = findraBaseUrl) {
 
   // Load URL
   try {
-    wc.loadURL(initialUrl);
+    wc.loadURL(urlToLoad);
   } catch (e) {}
 
   // Switch to this new tab
@@ -528,7 +538,7 @@ function closeTab(id) {
       switchTab(remainingIds[remainingIds.length - 1]);
     } else {
       if (isWindowAlive(mainWindow)) {
-        createTab(findraBaseUrl);
+        createTab(getNewTabUrl());
       }
     }
   } else {
@@ -543,7 +553,9 @@ function navigateActiveTab(input) {
   let target = (input || '').trim();
   if (!target) return;
 
-  if (target.startsWith('http://') || target.startsWith('https://')) {
+  if (target === 'findra://newtab' || target === 'about:blank' || target === 'newtab' || target === 'home') {
+    target = getNewTabUrl();
+  } else if (target.startsWith('http://') || target.startsWith('https://') || target.startsWith('file://')) {
     // Valid absolute URL
   } else if (target.includes('.') && !target.includes(' ')) {
     target = 'https://' + target;
@@ -613,7 +625,7 @@ function setupApplicationMenu() {
         {
           label: 'New Tab',
           accelerator: 'CmdOrCtrl+T',
-          click: () => createTab(findraBaseUrl)
+          click: () => createTab(getNewTabUrl())
         },
         {
           label: 'Close Tab',
@@ -754,7 +766,7 @@ function setupIpcHandlers() {
   });
 
   // Setup IPC Handlers
-  ipcMain.on('browser:newTab', (_e, url) => createTab(url || findraBaseUrl));
+  ipcMain.on('browser:newTab', (_e, url) => createTab(url || getNewTabUrl()));
   ipcMain.on('browser:switchTab', (_e, id) => switchTab(id));
   ipcMain.on('browser:closeTab', (_e, id) => closeTab(id));
   ipcMain.on('browser:duplicateTab', (_e, id) => {
@@ -772,7 +784,7 @@ function setupIpcHandlers() {
       {
         label: 'New Tab',
         accelerator: 'CmdOrCtrl+T',
-        click: () => createTab(findraBaseUrl)
+        click: () => createTab(getNewTabUrl())
       },
       {
         label: 'Reload',
@@ -835,7 +847,7 @@ function setupIpcHandlers() {
       try { tab.view.webContents.reload(); } catch (e) {}
     }
   });
-  ipcMain.on('browser:goHome', () => navigateActiveTab(findraBaseUrl));
+  ipcMain.on('browser:goHome', () => navigateActiveTab(getNewTabUrl()));
   ipcMain.on('browser:toggleSidePanel', toggleSidePanel);
 
   // Real-time suggestions from Findra API
@@ -1024,7 +1036,7 @@ function createWindow() {
 
   // Create initial tab once UI finishes loading
   mainWindow.webContents.once('did-finish-load', () => {
-    createTab(findraBaseUrl);
+    createTab(getNewTabUrl());
   });
 
   setupApplicationMenu();

@@ -55,6 +55,14 @@ try {
   if (host.includes('localhost') || host.includes('render.com') || host.includes('findra')) {
     contextBridge.exposeInMainWorld('isFindraNativeApp', true);
   }
+  if (window.location.protocol === 'file:' && window.location.pathname.includes('newtab.html')) {
+    contextBridge.exposeInMainWorld('findraBrowser', {
+      getShieldStatus: () => ipcRenderer.invoke('shield:getStatus'),
+      onShieldStats: (cb) => ipcRenderer.on('shield:stats', (_e, data) => cb(data)),
+      getCloudUrl: () => ipcRenderer.invoke('browser:getCloudUrl'),
+      navigate: (url) => ipcRenderer.send('browser:navigate', url),
+    });
+  }
 } catch (e) {}
 
 // Safe main-world script evaluator
